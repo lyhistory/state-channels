@@ -1,0 +1,9 @@
+node:
+  data-location: data
+  grpc:
+    port: 5001
+  eth:
+    node-url: https://rinkeby.infura.io/ypwmqwuGfOrinBP0uQwh
+    key-store-location: data/key-store
+    key-password: Welcome!1 
+    

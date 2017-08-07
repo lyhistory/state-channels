@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+import "common.proto";
+
+option java_multiple_files = true;
+option java_package = "papyrus.channel.protocol";
+option java_outer_classname = "PapyrusChannel";
+
+
+service PapyrusChannelProtocol {
+    rpc Update(ChannelUpdate) returns (ChannelUpdateResponse);
+}
+
+message ChannelState {
+    string channel_id = 1;
+    int64 nonce = 2;
+    bool active = 3;
+    string total_transfer = 4;
+    bytes completed_root = 5;
+    bytes locked_root = 6;
+    bytes signature = 7;
+}
+
+message ChannelUpdate {
+    ChannelState state = 1;
+    repeated PPTransfer transfer = 2;
+}
+
+message PPTransfer {
+    string id = 1;
+    string sum = 2;
+    string data = 3;
+}
+
+message ChannelUpdateResponse {
+    enum Status {
+        SUCCESS = 0;
+        FAILURE = 1;
+    }
+    Status status = 1;
+}
+
