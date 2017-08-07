@@ -1,3 +1,8 @@
+server:
+  port: 
+  ssl:
+    
+
 node:
   data-location: data
   grpc:
