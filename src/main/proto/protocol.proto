@@ -38,5 +38,6 @@ message ChannelUpdateResponse {
         FAILURE = 1;
     }
     Status status = 1;
+    string error = 2;
 }
 
