@@ -52,7 +52,7 @@ public class GrpcServer implements Lifecycle {
     private boolean started;
     
     @Autowired
-    private StateChannelProtocolImpl channelProtocolServer;
+    private ProtocolImpl channelProtocolServer;
 
     @Autowired
     private NodeProperties properties;

@@ -4,7 +4,7 @@ import "./PPChannelLibrary.sol";
 
 contract PPChannelContract {
     using PPChannelLibrary for PPChannelLibrary.Data;
-    PPChannelLibrary.Data public data;
+    PPChannelLibrary.Data data;
 
     event ChannelNewBalance(address token_address, address participant, uint balance, uint block_number);
     event ChannelClosed(address closing_address, uint block_number);
@@ -13,7 +13,7 @@ contract PPChannelContract {
     event ChannelSecretRevealed(bytes32 secret, address receiver_address);
 
     modifier settleTimeoutNotTooLow(uint t) {
-        assert(t >= 6);
+        require(t >= 6);
         _;
     }
 

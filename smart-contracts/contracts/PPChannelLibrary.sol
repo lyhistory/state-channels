@@ -1,8 +1,15 @@
 pragma solidity ^0.4.0;
 
 import "./Token.sol";
+import 'zeppelin-solidity/contracts/ECRecovery.sol';
 
+//Papyrus State Channel 
+//moved to separate library to save gas
 library PPChannelLibrary {
+    struct StateUpdate {
+    
+    }
+
     struct Data {
         uint settle_timeout;
         uint opened;
@@ -15,7 +22,8 @@ library PPChannelLibrary {
         address receiver;
         uint256 balance;
 
-        bool updated;
+        StateUpdate sender_update; 
+        StateUpdate receiver_update; 
     }
 
     modifier notSettledButClosed(Data storage self) {
@@ -72,9 +80,47 @@ library PPChannelLibrary {
         return (false, 0);
     }
 
-    function update(Data storage self, uint256 amount)
-    senderOnly(self)
-    returns (bool success, uint256 balance)
+    function update(
+        Data storage self,
+        uint64 nonce,
+        uint256 transferred_amount,
+        bytes signature
+    )
     {
+        bytes32 signed_hash;
+
+        signed_hash = sha3(
+            nonce,
+            transferred_amount
+        );
+    
+        address sign_address = ECRecovery.recover(signed_hash, signature);
+        require(sign_address == self.sender);
+    }
+
+    function getRawData(bytes memory signed_data) internal returns (bytes memory, address) {
+        uint length = signed_data.length;
+        uint signature_start = length - 65;
+        bytes memory signature = slice(signed_data, signature_start, length);
+        bytes memory data_raw = slice(signed_data, 0, signature_start);
+
+        bytes32 hash = sha3(data_raw);
+        address transfer_address = ECRecovery.recover(hash, signature);
+
+        return (data_raw, transfer_address);
+    }
+
+    function slice(bytes a, uint start, uint end) private returns (bytes n) {
+        if (a.length < end) {
+            throw;
+        }
+        if (start < 0) {
+            throw;
+        }
+
+        n = new bytes(end - start);
+        for (uint i = start; i < end; i++) { //python style slice
+            n[i - start] = a[i];
+        }
     }
 }

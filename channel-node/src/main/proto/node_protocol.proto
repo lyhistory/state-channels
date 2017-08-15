@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+import "channel-node/src/main/proto/common.proto";
+
+option java_multiple_files = true;
+option java_package = "papyrus.channel.node";
+
+
+service PapyrusChannelNodeProtocol {
+    // Creates or updates outgoing channel with given participant
+    rpc OpenChannel (ChannelOpenRequest) returns (ChannelOpenResponse);
+
+    // Request outgoing channel state with given participant 
+    rpc OutgoingChannelState (ChannelStateRequest) returns (ChannelStateResponse);
+
+    // Request channel state with given participant 
+    rpc IncomingChannelState (ChannelStateRequest) returns (ChannelStateResponse);
+}
+
+message ChannelProperties {
+    uint32 settle_timeout = 1;
+    uint32 close_timeout = 2;
+    uint32 deposit = 3;
+}
+
+message ChannelOpenRequest {
+    string participant_address = 1;
+    ChannelProperties properties = 2;
+}
+
+message ChannelOpenResponse {
+    enum StatusCode {
+        SUCCESS = 0;
+        RECEIVER_NOT_FOUND = 1;
+    }
+
+    StatusCode status = 1;
+}
+
+message ChannelState {
+    string channel_address = 1;
+    string participant_address = 2;
+    ChannelProperties properties = 3;
+}
+
+message ChannelStateRequest {
+    string address = 1;
+}
+
+message ChannelStateResponse {
+    ChannelProperties properties = 1;
+    repeated string active_channels = 2;
+    repeated string closing_channels = 3;
+}
+
+// The request message containing the user's name.
+message PPTransferPromise {
+
+}

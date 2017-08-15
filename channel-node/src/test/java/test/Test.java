@@ -14,5 +14,9 @@ public class Test {
         Web3j web3 = Web3j.build(new HttpService("https://rinkeby.infura.io/ypwmqwuGfOrinBP0uQwh"));
         EthGetBalance balance = web3.ethGetBalance("0x28E9b8fBaacAa0615067700909017e69120ad202", DefaultBlockParameterName.LATEST).send();
         System.out.println(Convert.fromWei(new BigDecimal(balance.getBalance()), Convert.Unit.ETHER));
+//        web3.ethLogObservable(
+//            new EthFilter(DefaultBlockParameterName.EARLIEST, DefaultBlockParameterName.LATEST, "0x28E9b8fBaacAa0615067700909017e69120ad202")
+//            .addSingleTopic()
+//        ).
     }
 }

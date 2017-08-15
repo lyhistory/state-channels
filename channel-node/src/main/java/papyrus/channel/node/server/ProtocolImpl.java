@@ -5,5 +5,5 @@ import org.springframework.stereotype.Component;
 import papyrus.channel.protocol.PapyrusChannelProtocolGrpc;
 
 @Component
-public class StateChannelProtocolImpl extends PapyrusChannelProtocolGrpc.PapyrusChannelProtocolImplBase {
+public class ProtocolImpl extends PapyrusChannelProtocolGrpc.PapyrusChannelProtocolImplBase {
 }
