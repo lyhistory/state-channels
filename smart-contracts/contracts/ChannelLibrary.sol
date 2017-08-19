@@ -1,11 +1,11 @@
 pragma solidity ^0.4.0;
 
-import "./Token.sol";
+import 'zeppelin-solidity/contracts/token/StandardToken.sol';
 import 'zeppelin-solidity/contracts/ECRecovery.sol';
 
 //Papyrus State Channel 
 //moved to separate library to save gas
-library PPChannelLibrary {
+library ChannelLibrary {
     struct StateUpdate {
     
     }
@@ -16,7 +16,7 @@ library PPChannelLibrary {
         uint closed;
         uint settled;
         address closing_address;
-        Token token;
+        StandardToken token;
     
         address sender;
         address receiver;

@@ -1,8 +1,12 @@
 var ECRecovery = artifacts.require("zeppelin-solidity/contracts/ECRecovery.sol");
-var PPChannelLibrary = artifacts.require("./PPChannelLibrary.sol");
+var StandardToken = artifacts.require("zeppelin-solidity/contracts/StandardToken.sol");
+var ChannelLibrary = artifacts.require("./ChannelLibrary.sol");
+var EndpointRegistry = artifacts.require("./EndpointRegistry.sol");
 
 module.exports = function (deployer) {
     deployer.deploy(ECRecovery);
-    deployer.link(ECRecovery, PPChannelLibrary);
-    deployer.deploy(PPChannelLibrary);
+    deployer.deploy(StandardToken);
+    deployer.link(ECRecovery, ChannelLibrary);
+    deployer.deploy(ChannelLibrary);
+    deployer.deploy(EndpointRegistry);
 };

@@ -1,10 +1,10 @@
 pragma solidity ^0.4.0;
 
-import "./PPChannelLibrary.sol";
+import "./ChannelLibrary.sol";
 
-contract PPChannelContract {
-    using PPChannelLibrary for PPChannelLibrary.Data;
-    PPChannelLibrary.Data data;
+contract ChannelContract {
+    using ChannelLibrary for ChannelLibrary.Data;
+    ChannelLibrary.Data data;
 
     event ChannelNewBalance(address token_address, address participant, uint balance, uint block_number);
     event ChannelClosed(address closing_address, uint block_number);
@@ -17,7 +17,7 @@ contract PPChannelContract {
         _;
     }
 
-    function PPChannelContract(
+    function ChannelContract(
         address token_address,
         address sender,
         address receiver,
@@ -29,7 +29,7 @@ contract PPChannelContract {
         data.sender = sender;
         data.receiver = receiver;
 
-        data.token = Token(token_address);
+        data.token = StandardToken(token_address);
         data.settle_timeout = timeout;
         data.opened = block.number;
     }

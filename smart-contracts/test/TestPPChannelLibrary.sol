@@ -3,13 +3,13 @@ pragma solidity ^0.4.2;
 
 import "truffle/Assert.sol";
 import "truffle/DeployedAddresses.sol";
-import "../contracts/PPChannelLibrary.sol";
+import "../contracts/ChannelLibrary.sol";
 
 
-contract TestPPChannelLibrary {
+contract TestChannelLibrary {
 
     function testInitialBalanceUsingDeployedContract() {
-        PPChannelLibrary meta = PPChannelLibrary(DeployedAddresses.PPChannelLibrary());
+        ChannelLibrary meta = ChannelLibrary(DeployedAddresses.ChannelLibrary());
 
         uint expected = 10000;
 

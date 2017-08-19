@@ -1,12 +1,9 @@
-eth:
-  node-url: http://localhost:8545
-  private-key: 06e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
-  gas-price: 1
-  gas-limit: 2000000
-channel:
-  server:
-    port: 8080
-    endpoint-url: http://localhost:8080
+node:
+  eth:
+    node-url: https://localhost:8545
+    private-key: 06e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
+    gas-price: 1
+    gas-limit: 2000000
   contracts:
     addresses: 
       ECRecovery: 0xaf9231a7d8476f1bce91f8ec23effb32127680f6

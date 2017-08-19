@@ -34,54 +34,55 @@ package papyrus.channel.node.server;
 import java.io.IOException;
 import java.util.logging.Logger;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.Lifecycle;
+import org.springframework.context.event.ContextStartedEvent;
+import org.springframework.context.event.ContextStoppedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
-import papyrus.channel.node.config.NodeProperties;
+import papyrus.channel.node.config.ChannelServerProperties;
 
 @Service
-@EnableConfigurationProperties(NodeProperties.class)
-public class GrpcServer implements Lifecycle {
+@EnableConfigurationProperties(ChannelServerProperties.class)
+public class GrpcServer {
     private static final Logger logger = Logger.getLogger(GrpcServer.class.getName());
 
     private Server grpcServer;
-    private boolean started;
     
-    @Autowired
-    private ProtocolImpl channelProtocolServer;
+    private ProtocolImpl protocolService;
+    private NodeProtocolImpl nodeProtocolService;
 
-    @Autowired
-    private NodeProperties properties;
+    private ChannelServerProperties properties;
 
-    public void start() {
-        int port = properties.getGrpc().getPort();
+    public GrpcServer(ProtocolImpl protocolService, NodeProtocolImpl nodeProtocolService, ChannelServerProperties properties) {
+        this.protocolService = protocolService;
+        this.nodeProtocolService = nodeProtocolService;
+        this.properties = properties;
+    }
+
+    @EventListener(ContextStartedEvent.class)
+    public void onStarted() {
+        int port = properties.getPort();
         grpcServer = ServerBuilder.forPort(port)
-            .addService(channelProtocolServer)
+            .addService(protocolService)
+            .addService(nodeProtocolService)
             .build();
 
         try {
             grpcServer.start();
-            started = true;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         logger.info("Server started, listening on " + grpcServer.getPort());
     }
 
-    public void stop() {
+    @EventListener(ContextStoppedEvent.class)
+    public void onStopped() {
         if (grpcServer != null) {
-            started = false;
             grpcServer.shutdown();
         }
-    }
-
-    @Override
-    public boolean isRunning() {
-        return started;
     }
     
     public void awaitTermination() throws InterruptedException {

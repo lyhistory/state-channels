@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+solc --add-std -o build/solc --overwrite zeppelin-solidity=node_modules/zeppelin-solidity --allow-paths /Users/leonidtalalaev/Documents/Papyrus/state-channels/smart-contracts/node_modules/zeppelin-solidity/contracts contracts/*.sol --abi --bin

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-import "channel-node/src/main/proto/common.proto";
+import "common.proto";
 
 option java_multiple_files = true;
 option java_package = "papyrus.channel.protocol";
@@ -8,13 +8,23 @@ option java_outer_classname = "PapyrusChannel";
 
 
 service PapyrusChannelProtocol {
+    rpc Open(ChannelOpenRequest) returns (ChannelOpenResponse);
     rpc Update(ChannelUpdate) returns (ChannelUpdateResponse);
+}
+
+message ChannelOpenRequest {
+    string channel_id = 1;
+}
+
+message ChannelOpenResponse {
+    StatusCode status = 1;
+    string error = 2;
 }
 
 message ChannelState {
     string channel_id = 1;
-    int64 nonce = 2;
-    bool active = 3;
+    int32 nonce = 2;
+    bool final = 3;
     string total_transfer = 4;
     bytes completed_root = 5;
     bytes locked_root = 6;
@@ -23,21 +33,10 @@ message ChannelState {
 
 message ChannelUpdate {
     ChannelState state = 1;
-    repeated PPTransfer transfer = 2;
-}
-
-message PPTransfer {
-    string id = 1;
-    string sum = 2;
-    string data = 3;
 }
 
 message ChannelUpdateResponse {
-    enum Status {
-        SUCCESS = 0;
-        FAILURE = 1;
-    }
-    Status status = 1;
+    StatusCode status = 1;
     string error = 2;
 }
 

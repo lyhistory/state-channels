@@ -1,20 +1,19 @@
 syntax = "proto3";
 
-import "channel-node/src/main/proto/common.proto";
+import "common.proto";
 
 option java_multiple_files = true;
 option java_package = "papyrus.channel.node";
 
-
 service PapyrusChannelNodeProtocol {
     // Creates or updates outgoing channel with given participant
-    rpc OpenChannel (ChannelOpenRequest) returns (ChannelOpenResponse);
+    rpc AddParticipant (AddParticipantRequest) returns (AddParticipantResponse);
 
     // Request outgoing channel state with given participant 
-    rpc OutgoingChannelState (ChannelStateRequest) returns (ChannelStateResponse);
+    rpc OutgoingChannelState (ChannelStatusRequest) returns (ChannelStatusResponse);
 
     // Request channel state with given participant 
-    rpc IncomingChannelState (ChannelStateRequest) returns (ChannelStateResponse);
+    rpc IncomingChannelState (ChannelStatusRequest) returns (ChannelStatusResponse);
 }
 
 message ChannelProperties {
@@ -23,34 +22,29 @@ message ChannelProperties {
     uint32 deposit = 3;
 }
 
-message ChannelOpenRequest {
+message AddParticipantRequest {
     string participant_address = 1;
     ChannelProperties properties = 2;
 }
 
-message ChannelOpenResponse {
-    enum StatusCode {
-        SUCCESS = 0;
-        RECEIVER_NOT_FOUND = 1;
-    }
-
+message AddParticipantResponse {
     StatusCode status = 1;
 }
 
-message ChannelState {
+message ChannelStatus {
     string channel_address = 1;
     string participant_address = 2;
     ChannelProperties properties = 3;
+    bool active = 4;
 }
 
-message ChannelStateRequest {
+message ChannelStatusRequest {
     string address = 1;
 }
 
-message ChannelStateResponse {
+message ChannelStatusResponse {
     ChannelProperties properties = 1;
-    repeated string active_channels = 2;
-    repeated string closing_channels = 3;
+    repeated ChannelStatus channels = 2;
 }
 
 // The request message containing the user's name.
