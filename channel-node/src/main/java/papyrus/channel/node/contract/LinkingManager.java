@@ -9,22 +9,15 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.stereotype.Component;
 import org.web3j.abi.datatypes.Address;
-import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
+import org.web3j.protocol.core.DefaultBlockParameterName;
+import org.web3j.protocol.core.methods.response.EthGetCode;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
 import org.web3j.tx.Contract;
-import org.web3j.tx.FastRawTransactionManager;
 import org.web3j.tx.TransactionManager;
+import org.web3j.utils.Numeric;
 
-import papyrus.channel.node.config.ContractsProperties;
-import papyrus.channel.node.config.EthProperties;
-
-@Component
-@EnableConfigurationProperties({EthProperties.class, ContractsProperties.class})
 public class LinkingManager extends TransactionManager {
     private static final Logger log = LoggerFactory.getLogger(LinkingManager.class);
 
@@ -33,16 +26,6 @@ public class LinkingManager extends TransactionManager {
     private final BigInteger gasPrice;
     private final BigInteger gasLimit;
     private final Web3j web3j;
-
-    @Autowired
-    public LinkingManager(Web3j web3j, Credentials credentials, EthProperties ethProperties, ContractsProperties contractsProperties) {
-        this(web3j, credentials, ethProperties.getGasPrice(), ethProperties.getGasLimit());
-        contractsProperties.getAddresses().forEach(this::provide);
-    }
-
-    public LinkingManager(Web3j web3j, Credentials credentials, BigInteger gasPrice, BigInteger gasLimit) {
-        this(web3j, new FastRawTransactionManager(web3j, credentials), gasPrice, gasLimit);
-    }
 
     public LinkingManager(Web3j web3j, TransactionManager manager, BigInteger gasPrice, BigInteger gasLimit) {
         super(web3j);
@@ -76,7 +59,23 @@ public class LinkingManager extends TransactionManager {
             //String contractAddress, Web3j web3j, TransactionManager transactionManager, BigInteger gasPrice, BigInteger gasLimit
             Method method = contractClass.getDeclaredMethod("load", String.class, Web3j.class, TransactionManager.class, BigInteger.class, BigInteger.class);
             Object contract = method.invoke(null, address.toString(), web3j, this, gasPrice, gasLimit);
-            return contractClass.cast(contract);
+            C c = contractClass.cast(contract);
+            EthGetCode ethGetCode = web3j
+                .ethGetCode(c.getContractAddress(), DefaultBlockParameterName.LATEST)
+                .send();
+
+            if (ethGetCode.hasError()) {
+                throw new IllegalStateException("Failed to validate " + name + ": " + ethGetCode.getError().getMessage());
+            }
+
+            String code = Numeric.cleanHexPrefix(ethGetCode.getCode());
+            if (code.equals("0")) {
+                throw new IllegalStateException("Contract " + name + " is not deployed at address: " + address.toString());
+            }
+            if (!c.getContractBinary().contains(code)) {
+                throw new IllegalStateException("Contract code is not valid for " + name);
+            }
+            return c;
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }

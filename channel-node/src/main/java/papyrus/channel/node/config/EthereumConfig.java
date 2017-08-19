@@ -24,10 +24,10 @@ public class EthereumConfig {
     public EthereumConfig(EthProperties properties) throws IOException, CipherException {
         if (properties.getKeyLocation() != null) {
             credentials = WalletUtils.loadCredentials(properties.getKeyPassword(), properties.getKeyLocation());
-        } else if (properties.getPrivateKey() != null) {
-            credentials = Credentials.create(properties.getPrivateKey());
+        } else if (properties.getTest().getPrivateKey() != null) {
+            credentials = Credentials.create(properties.getTest().getPrivateKey());
         } else {
-            throw new IllegalStateException("Either node.eth.key-location or node.eth.private-key required");
+            throw new IllegalStateException("Either node.eth.key-location or node.eth.test.private-key required");
         }
         log.info("Using address {} and rpc server {}", credentials.getAddress(), properties.getNodeUrl());
         web3j = Web3j.build(new HttpService(properties.getNodeUrl()));

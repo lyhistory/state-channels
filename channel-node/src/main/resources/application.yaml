@@ -1,6 +1,8 @@
 eth:
   node-url: http://localhost:8545
-  private-key: 06e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
+  test:
+    private-key: 06e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
+    auto-refill: 10
   gas-price: 1
   gas-limit: 2000000
 channel:
@@ -8,8 +10,13 @@ channel:
     port: 8080
     endpoint-url: http://localhost:8080
   contracts:
-    addresses: 
-      ECRecovery: 0xaf9231a7d8476f1bce91f8ec23effb32127680f6
-      StandardToken: 0xe1d12993b63020a9b6fc6ed55328e5974967dfb6
-      ChannelLibrary: 0xa7fe06857c8b7ee5a0a7918b0b56a357dfd44a9d
-      EndpointRegistry: 0xc3eea5c845effa33c7c9971f528ccb853f972f63
+    addresses:
+#     make 'truffle migrate' and copy contract's addresses here
+      ECRecovery: 0x1cd511e40139cae2b535eb52b3ed6e4784ec9fc6
+      StandardToken: 0xd869c618c0da23dddc4c9c9bf70b5e457baae548
+      ChannelLibrary: 0xef6da97a94b049aa11168f8b96b9bf75892d5834
+      EndpointRegistry: 0x7040bd5616637c8a0eaf16e3c6641c1a6f7ee165
+logging:
+  level:
+#   org.apache.http: DEBUG
+   papyrus: DEBUG

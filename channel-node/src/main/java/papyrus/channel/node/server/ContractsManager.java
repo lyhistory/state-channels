@@ -1,7 +1,9 @@
 package papyrus.channel.node.server;
 
+import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
+import org.bouncycastle.crypto.engines.ISAACEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -24,7 +26,7 @@ public class ContractsManager {
     private final ChannelServerProperties properties;
     private final EndpointRegistry registry;
 
-    public ContractsManager(LinkingManager manager, ChannelServerProperties properties) {
+    public ContractsManager(LinkingManager manager, ChannelServerProperties properties) throws IOException {
         this.manager = manager;
         this.properties = properties;
         registry = manager.load(EndpointRegistry.class);
@@ -41,9 +43,10 @@ public class ContractsManager {
             Utf8String currentEndpoint = registry.findEndpointByAddress(new Address(manager.getFromAddress())).get();
             if (currentEndpoint != null && currentEndpoint.getValue().equals(endpointUrl)) {
                 log.info("Endpoint already registered, will not update");
+            } else {
+                log.info("Registering endpoint {} -> {}", manager.getFromAddress(), endpointUrl);
+                registry.registerEndpoint(new Utf8String(endpointUrl)).get();
             }
-            log.info("Registering endpoint {} -> {}", manager.getFromAddress(), endpointUrl);
-            registry.registerEndpoint(new Utf8String(endpointUrl));
         } catch (InterruptedException | ExecutionException e) {
             throw new IllegalStateException("Failed to register node", e);
         }
