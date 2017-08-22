@@ -43,31 +43,35 @@ import org.springframework.stereotype.Service;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import papyrus.channel.node.config.ChannelServerProperties;
+import papyrus.channel.node.server.admin.ChannelAdminImpl;
 
 @Service
 @EnableConfigurationProperties(ChannelServerProperties.class)
-public class GrpcServer {
-    private static final Logger logger = Logger.getLogger(GrpcServer.class.getName());
+public class NodeServer {
+    private static final Logger logger = Logger.getLogger(NodeServer.class.getName());
 
     private Server grpcServer;
     
-    private ProtocolImpl protocolService;
-    private NodeProtocolImpl nodeProtocolService;
+    private ChannelClientImpl channelClient;
+    private ChannelPeerImpl channelPeer;
+    private ChannelAdminImpl channelAdmin;
 
     private ChannelServerProperties properties;
 
-    public GrpcServer(ProtocolImpl protocolService, NodeProtocolImpl nodeProtocolService, ChannelServerProperties properties) {
-        this.protocolService = protocolService;
-        this.nodeProtocolService = nodeProtocolService;
+    public NodeServer(ChannelClientImpl channelClient, ChannelPeerImpl channelPeer, ChannelAdminImpl channelAdmin, ChannelServerProperties properties) {
+        this.channelClient = channelClient;
+        this.channelPeer = channelPeer;
+        this.channelAdmin = channelAdmin;
         this.properties = properties;
     }
 
     @EventListener(ContextStartedEvent.class)
-    public void onStarted() {
+    public void start() {
         int port = properties.getPort();
         grpcServer = ServerBuilder.forPort(port)
-            .addService(protocolService)
-            .addService(nodeProtocolService)
+            .addService(channelClient)
+            .addService(channelPeer)
+            .addService(channelAdmin)
             .build();
 
         try {
@@ -79,7 +83,7 @@ public class GrpcServer {
     }
 
     @EventListener(ContextStoppedEvent.class)
-    public void onStopped() {
+    public void stop() {
         if (grpcServer != null) {
             grpcServer.shutdown();
         }

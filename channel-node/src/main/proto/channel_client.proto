@@ -5,30 +5,12 @@ import "common.proto";
 option java_multiple_files = true;
 option java_package = "papyrus.channel.node";
 
-service PapyrusChannelNodeProtocol {
-    // Creates or updates outgoing channel with given participant
-    rpc AddParticipant (AddParticipantRequest) returns (AddParticipantResponse);
-
+service ChannelClient {
     // Request outgoing channel state with given participant 
     rpc OutgoingChannelState (ChannelStatusRequest) returns (ChannelStatusResponse);
 
     // Request channel state with given participant 
     rpc IncomingChannelState (ChannelStatusRequest) returns (ChannelStatusResponse);
-}
-
-message ChannelProperties {
-    uint32 settle_timeout = 1;
-    uint32 close_timeout = 2;
-    uint32 deposit = 3;
-}
-
-message AddParticipantRequest {
-    string participant_address = 1;
-    ChannelProperties properties = 2;
-}
-
-message AddParticipantResponse {
-    StatusCode status = 1;
 }
 
 message ChannelStatus {
@@ -39,12 +21,12 @@ message ChannelStatus {
 }
 
 message ChannelStatusRequest {
-    string address = 1;
+    string participant_address = 1;
+    bool active_only = 2;
 }
 
 message ChannelStatusResponse {
-    ChannelProperties properties = 1;
-    repeated ChannelStatus channels = 2;
+    repeated ChannelStatus channels = 1;
 }
 
 // The request message containing the user's name.

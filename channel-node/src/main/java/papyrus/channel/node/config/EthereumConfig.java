@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,10 +19,13 @@ import org.web3j.protocol.http.HttpService;
 public class EthereumConfig {
     private static final Logger log = LoggerFactory.getLogger(EthereumConfig.class);
     
+    private final EthProperties properties;
     private final Credentials credentials;
     private final Web3j web3j;
 
+    @Autowired
     public EthereumConfig(EthProperties properties) throws IOException, CipherException {
+        this.properties = properties;
         if (properties.getKeyLocation() != null) {
             credentials = WalletUtils.loadCredentials(properties.getKeyPassword(), properties.getKeyLocation());
         } else if (properties.getTest().getPrivateKey() != null) {
@@ -31,6 +35,10 @@ public class EthereumConfig {
         }
         log.info("Using address {} and rpc server {}", credentials.getAddress(), properties.getNodeUrl());
         web3j = Web3j.build(new HttpService(properties.getNodeUrl()));
+    }
+
+    public EthProperties getProperties() {
+        return properties;
     }
 
     @Bean

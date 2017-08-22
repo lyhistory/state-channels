@@ -7,18 +7,17 @@ option java_package = "papyrus.channel.protocol";
 option java_outer_classname = "PapyrusChannel";
 
 
-service PapyrusChannelProtocol {
-    rpc Open(ChannelOpenRequest) returns (ChannelOpenResponse);
-    rpc Update(ChannelUpdate) returns (ChannelUpdateResponse);
+service ChannelPeer {
+    rpc Opened (ChannelOpenedRequest) returns (ChannelOpenedResponse);
+    rpc Update (ChannelUpdate) returns (ChannelUpdateResponse);
 }
 
-message ChannelOpenRequest {
+message ChannelOpenedRequest {
     string channel_id = 1;
 }
 
-message ChannelOpenResponse {
-    StatusCode status = 1;
-    string error = 2;
+message ChannelOpenedResponse {
+    Error error = 2;
 }
 
 message ChannelState {

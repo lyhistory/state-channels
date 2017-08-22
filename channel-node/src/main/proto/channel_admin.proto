@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+import "common.proto";
+
+option java_multiple_files = true;
+option java_package = "papyrus.channel.node";
+
+service ChannelAdmin {
+    // Creates or updates outgoing channel with given participant
+    rpc AddParticipant(AddParticipantRequest) returns (AddParticipantResponse);
+}
+
+message AddParticipantRequest {
+    string participant_address = 1;
+    ChannelProperties properties = 2;
+    //number of simultaneously active open channels
+    int32 active_channels = 3;
+}
+
+message AddParticipantResponse {
+    Error error = 1;
+}

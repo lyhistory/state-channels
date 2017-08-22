@@ -3,11 +3,11 @@ pragma solidity ^0.4.0;
 import 'zeppelin-solidity/contracts/token/StandardToken.sol';
 import 'zeppelin-solidity/contracts/ECRecovery.sol';
 
-//Papyrus State Channel 
+//Papyrus State Channel Library
 //moved to separate library to save gas
 library ChannelLibrary {
     struct StateUpdate {
-    
+        uint256 completed_transfers;
     }
 
     struct Data {
@@ -112,10 +112,10 @@ library ChannelLibrary {
 
     function slice(bytes a, uint start, uint end) private returns (bytes n) {
         if (a.length < end) {
-            throw;
+            revert();
         }
         if (start < 0) {
-            throw;
+            revert();
         }
 
         n = new bytes(end - start);

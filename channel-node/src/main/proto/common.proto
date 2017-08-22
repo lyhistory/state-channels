@@ -6,6 +6,17 @@ option java_package = "papyrus.channel";
 
 enum StatusCode {
     SUCCESS = 0;
-    RECEIVER_NOT_FOUND = 1;
+    BAD_REQUEST = 1;
+    RECEIVER_NOT_FOUND = 2;
 }
 
+message Error {
+    StatusCode status = 1;
+    string message = 2;
+}
+
+message ChannelProperties {
+    uint32 settle_timeout = 1;
+    uint32 close_timeout = 2;
+    uint32 deposit = 3;
+}

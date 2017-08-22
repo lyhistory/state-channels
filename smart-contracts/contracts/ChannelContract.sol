@@ -89,6 +89,34 @@ contract ChannelContract {
 //        ChannelSettled(data.settled);
 //    }
 
+    /// @notice Returns whole state of contract as single call
+    function state() constant returns (
+        uint,
+        uint,
+        uint,
+        uint,
+        address,
+        address,
+        address,
+        address,
+        uint256,
+        uint256,
+        uint256
+    ) {
+        return (data.settle_timeout,
+            data.opened,
+            data.closed,
+            data.settled,
+            data.closing_address,
+            data.token,
+            data.sender,
+            data.receiver,
+            data.balance,
+            data.sender_update.completed_transfers,
+            data.receiver_update.completed_transfers
+        );
+    }
+
     /// @notice Returns the number of blocks until the settlement timeout.
     /// @return The number of blocks until the settlement timeout.
     function settleTimeout() constant returns (uint) {

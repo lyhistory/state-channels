@@ -6,6 +6,7 @@ import java.io.IOException;
 import org.web3j.codegen.SolidityFunctionWrapper;
 import org.web3j.protocol.ObjectMapperFactory;
 
+//TODO move to build.gradle
 public class GenJava {
 
     public static final String COMPILED_CONTRACTS_DIR = "../smart-contracts/build/contracts/";

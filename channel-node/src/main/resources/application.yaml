@@ -18,5 +18,6 @@ channel:
       EndpointRegistry: 0x7040bd5616637c8a0eaf16e3c6641c1a6f7ee165
 logging:
   level:
+   default: INFO
 #   org.apache.http: DEBUG
    papyrus: DEBUG

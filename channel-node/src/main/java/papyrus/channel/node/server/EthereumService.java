@@ -29,13 +29,16 @@ public class EthereumService {
     
     private EthereumConfig config;
     private final LinkingManager manager;
+    private final Web3j web3j;
+    private BigInteger blockNumber;
+    private long blockNumberUpdated;
 
-    public EthereumService(EthereumConfig config, EthProperties ethProperties, ContractsProperties contractsProperties) throws IOException, ExecutionException, InterruptedException {
+    public EthereumService(EthereumConfig config, ContractsProperties contractsProperties) throws IOException, ExecutionException, InterruptedException {
         this.config = config;
 
-        Web3j web3j = config.getWeb3j();
-        FastRawTransactionManager transactionManager = new FastRawTransactionManager(web3j, config.getCredentials());
-        manager = new LinkingManager(web3j, transactionManager, ethProperties.getGasPrice(), ethProperties.getGasLimit());
+        web3j = config.getWeb3j();
+        EthProperties ethProperties = config.getProperties();
+        manager = new LinkingManager(web3j, config);
 
         contractsProperties.getAddresses().forEach(manager::provide);
 
@@ -52,6 +55,10 @@ public class EthereumService {
         }
     }
 
+    public Web3j getWeb3j() {
+        return web3j;
+    }
+
     public BigDecimal getBalance(String nodeAddress, Convert.Unit unit) throws IOException {
         BigInteger balance = config.getWeb3j().ethGetBalance(nodeAddress, DefaultBlockParameterName.LATEST).send().getBalance();
         return Convert.fromWei(new BigDecimal(balance), unit);
@@ -60,5 +67,13 @@ public class EthereumService {
     @Bean
     public LinkingManager getManager() {
         return manager;
+    }
+
+    public BigInteger getBlockNumber() throws IOException {
+        if (blockNumber == null || System.currentTimeMillis() - blockNumberUpdated > 1000) {
+            blockNumber = web3j.ethBlockNumber().send().getBlockNumber();
+            blockNumberUpdated = System.currentTimeMillis();
+        }
+        return blockNumber;
     }
 }

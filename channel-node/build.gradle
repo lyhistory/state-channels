@@ -17,7 +17,7 @@ buildscript {
         classpath "gradle.plugin.com.gorylenko.gradle-git-properties:gradle-git-properties:1.4.17"
         // ASSUMES GRADLE 2.12 OR HIGHER. Use plugin version 0.7.5 with earlier
         // gradle versions
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.0'
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.3'
     }
 }
 
@@ -36,7 +36,7 @@ task v {
     ext.springBoot = "1.5.6.RELEASE"
     ext.spring = "4.3.10.RELEASE"
     ext.springSecurity = "4.2.3.RELEASE"
-    ext.grpc = '1.4.0' 
+    ext.grpc = '1.5.0' 
 }
 
 dependencies {
@@ -51,9 +51,9 @@ dependencies {
 
 
 //GRPC
-    compile 'io.grpc:grpc-netty:1.4.0'
-    compile 'io.grpc:grpc-protobuf:1.4.0'
-    compile 'io.grpc:grpc-stub:1.4.0'
+    compile "io.grpc:grpc-netty:${v.grpc}"
+    compile "io.grpc:grpc-protobuf:${v.grpc}"
+    compile "io.grpc:grpc-stub:${v.grpc}"
     compile "io.grpc:grpc-netty:${v.grpc}"
     compile "io.grpc:grpc-protobuf:${v.grpc}"
     compile "io.grpc:grpc-stub:${v.grpc}"

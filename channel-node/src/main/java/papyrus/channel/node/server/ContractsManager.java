@@ -3,7 +3,6 @@ package papyrus.channel.node.server;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
-import org.bouncycastle.crypto.engines.ISAACEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -13,15 +12,15 @@ import org.springframework.stereotype.Component;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Utf8String;
 
+import papyrus.channel.node.config.ChannelServerProperties;
 import papyrus.channel.node.contract.EndpointRegistry;
 import papyrus.channel.node.contract.LinkingManager;
-import papyrus.channel.node.config.ChannelServerProperties;
 
 @Component
 @EnableConfigurationProperties(ChannelServerProperties.class)
 public class ContractsManager {
     private static final Logger log = LoggerFactory.getLogger(ContractsManager.class);
-    
+
     private final LinkingManager manager;
     private final ChannelServerProperties properties;
     private final EndpointRegistry registry;
@@ -29,9 +28,9 @@ public class ContractsManager {
     public ContractsManager(LinkingManager manager, ChannelServerProperties properties) throws IOException {
         this.manager = manager;
         this.properties = properties;
-        registry = manager.load(EndpointRegistry.class);
+        registry = manager.loadLibraryContract(EndpointRegistry.class);
     }
-    
+
     @EventListener(ContextStartedEvent.class)
     public void registerEndpoint() {
         String endpointUrl = properties.getEndpointUrl();
