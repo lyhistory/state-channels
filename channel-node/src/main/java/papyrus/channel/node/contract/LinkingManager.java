@@ -18,15 +18,12 @@ import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Type;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
-import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.protocol.core.Response;
-import org.web3j.protocol.core.methods.response.EthGetCode;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.tx.Contract;
 import org.web3j.tx.FastRawTransactionManager;
 import org.web3j.tx.TransactionManager;
-import org.web3j.utils.Numeric;
 
 import com.google.common.base.Throwables;
 
@@ -57,6 +54,11 @@ public class LinkingManager extends TransactionManager {
     }
 
     public void provide(String name, Address contractAddress) {
+        try {
+            checkContractExists(name, contractAddress.toString());
+        } catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
         log.info("Provided contract {} -> {}", name, contractAddress);
         predeployed.put(name, contractAddress);
     }
@@ -69,9 +71,8 @@ public class LinkingManager extends TransactionManager {
             }
             //String contractAddress, Web3j web3j, TransactionManager transactionManager, BigInteger gasPrice, BigInteger gasLimit
             Method method = contractClass.getDeclaredMethod("load", String.class, Web3j.class, TransactionManager.class, BigInteger.class, BigInteger.class);
-            Object contract = method.invoke(null, address.toString(), web3j, this, config.getProperties().getGasPrice(), config.getProperties().getGasLimit());
-            C c = contractClass.cast(contract);
-            return c;
+            Object contract = method.invoke(null, address.toString(), web3j, this, config.getRpcProperties().getGasPrice(), config.getRpcProperties().getGasLimit());
+            return contractClass.cast(contract);
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
@@ -80,18 +81,9 @@ public class LinkingManager extends TransactionManager {
     public <C extends Contract> C loadPredeployedContract(Class<C> contractClass, String name) {
         try {
             C c = loadAbstractPredeployedContract(contractClass, name);
-            EthGetCode ethGetCode = web3j
-                .ethGetCode(c.getContractAddress(), DefaultBlockParameterName.LATEST)
-                .send();
+            String contractAddress = c.getContractAddress();
 
-            if (ethGetCode.hasError()) {
-                throw new IllegalStateException("Failed to validate " + name + ": " + ethGetCode.getError().getMessage());
-            }
-
-            String code = Numeric.cleanHexPrefix(ethGetCode.getCode());
-            if (code.equals("0")) {
-                throw new IllegalStateException("Contract " + name + " is not deployed at address: " + c.getContractAddress());
-            }
+            String code = checkContractExists(name, contractAddress);
             if (!c.getContractBinary().contains(code)) {
                 throw new IllegalStateException("Contract code is not valid for " + name);
             }
@@ -100,7 +92,15 @@ public class LinkingManager extends TransactionManager {
             throw new IllegalStateException(e);
         }
     }
-    
+
+    private String checkContractExists(String name, String contractAddress) throws IOException {
+        String code = EthUtil.getContractCode(web3j, contractAddress);
+        if (code.equals("0")) {
+            throw new IllegalStateException("Contract " + name + " is not deployed at address: " + contractAddress);
+        }
+        return code;
+    }
+
     public <C extends Contract> C loadLibraryContract(Class<C> contractClass) {
         String name = contractClass.getSimpleName();
         return loadPredeployedContract(contractClass, name);
@@ -117,7 +117,7 @@ public class LinkingManager extends TransactionManager {
         }
         String encodedConstructor = FunctionEncoder.encodeConstructor(Arrays.asList(args));
         try {
-            String transactionHash = sendTransaction(config.getProperties().getGasPrice(), config.getProperties().getGasLimit(), null, binary + encodedConstructor, BigInteger.ZERO).getTransactionHash();
+            String transactionHash = sendTransaction(config.getRpcProperties().getGasPrice(), config.getRpcProperties().getGasLimit(), null, binary + encodedConstructor, BigInteger.ZERO).getTransactionHash();
             if (transactionHash == null) {
                 throw new IllegalStateException("Failed to send transaction");
             }
@@ -144,7 +144,7 @@ public class LinkingManager extends TransactionManager {
                 BigInteger.class, BigInteger.class);
             constructor.setAccessible(true);
 
-            T contract = constructor.newInstance(null, web3j, config.getCredentials(), config.getProperties().getGasPrice(), config.getProperties().getGasLimit());
+            T contract = constructor.newInstance(null, web3j, config.getCredentials(), config.getRpcProperties().getGasPrice(), config.getRpcProperties().getGasLimit());
             contract.setContractAddress(rc.getContractAddress());
             contract.setTransactionReceipt(rc);
             return contract;

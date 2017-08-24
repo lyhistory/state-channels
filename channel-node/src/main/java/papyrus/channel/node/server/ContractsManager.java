@@ -13,7 +13,6 @@ import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Utf8String;
 
 import papyrus.channel.node.config.ChannelServerProperties;
-import papyrus.channel.node.contract.EndpointRegistry;
 import papyrus.channel.node.contract.LinkingManager;
 
 @Component
@@ -23,12 +22,12 @@ public class ContractsManager {
 
     private final LinkingManager manager;
     private final ChannelServerProperties properties;
-    private final EndpointRegistry registry;
+//    private final EndpointRegistry registry;
 
     public ContractsManager(LinkingManager manager, ChannelServerProperties properties) throws IOException {
         this.manager = manager;
         this.properties = properties;
-        registry = manager.loadLibraryContract(EndpointRegistry.class);
+//        registry = manager.loadLibraryContract(EndpointRegistry.class);
     }
 
     @EventListener(ContextStartedEvent.class)
@@ -38,16 +37,16 @@ public class ContractsManager {
             log.warn("No endpoint url provided");
             return;
         }
-        try {
-            Utf8String currentEndpoint = registry.findEndpointByAddress(new Address(manager.getFromAddress())).get();
-            if (currentEndpoint != null && currentEndpoint.getValue().equals(endpointUrl)) {
-                log.info("Endpoint already registered, will not update");
-            } else {
-                log.info("Registering endpoint {} -> {}", manager.getFromAddress(), endpointUrl);
-                registry.registerEndpoint(new Utf8String(endpointUrl)).get();
-            }
-        } catch (InterruptedException | ExecutionException e) {
-            throw new IllegalStateException("Failed to register node", e);
-        }
+//        try {
+//            Utf8String currentEndpoint = registry.findEndpointByAddress(new Address(manager.getFromAddress())).get();
+//            if (currentEndpoint != null && currentEndpoint.getValue().equals(endpointUrl)) {
+//                log.info("Endpoint already registered, will not update");
+//            } else {
+//                log.info("Registering endpoint {} -> {}", manager.getFromAddress(), endpointUrl);
+//                registry.registerEndpoint(new Utf8String(endpointUrl)).get();
+//            }
+//        } catch (InterruptedException | ExecutionException e) {
+//            throw new IllegalStateException("Failed to register node", e);
+//        }
     }
 }

@@ -2,6 +2,7 @@ pragma solidity ^0.4.0;
 
 import 'zeppelin-solidity/contracts/token/StandardToken.sol';
 import 'zeppelin-solidity/contracts/ECRecovery.sol';
+import './ChannelManager.sol';
 
 //Papyrus State Channel Library
 //moved to separate library to save gas
@@ -16,7 +17,7 @@ library ChannelLibrary {
         uint closed;
         uint settled;
         address closing_address;
-        StandardToken token;
+        ChannelManager manager;
     
         address sender;
         address receiver;
@@ -68,9 +69,10 @@ library ChannelLibrary {
         require(self.opened > 0);
         require(self.closed == 0);
 
-        require (self.token.balanceOf(msg.sender) >= amount);
+        require (self.manager.token().balanceOf(msg.sender) >= amount);
 
-        success = self.token.transferFrom(msg.sender, this, amount);
+        success = self.manager.token().transferFrom(msg.sender, this, amount);
+    
         if (success == true) {
             self.balance += amount;
 

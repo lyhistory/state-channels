@@ -2,17 +2,21 @@ package papyrus.channel.node;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
-import org.junit.AfterClass;
+import org.junit.After;
 import org.junit.Assert;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
-import org.web3j.abi.datatypes.Address;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit4.SpringRunner;
 import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.Wallet;
@@ -27,8 +31,9 @@ import io.grpc.ManagedChannelBuilder;
 import papyrus.channel.Error;
 import papyrus.channel.node.config.ChannelServerProperties;
 import papyrus.channel.node.config.ContractsProperties;
-import papyrus.channel.node.config.EthProperties;
+import papyrus.channel.node.config.EthRpcProperties;
 import papyrus.channel.node.config.EthereumConfig;
+import papyrus.channel.node.config.EthKeyProperties;
 import papyrus.channel.node.server.ChannelClientImpl;
 import papyrus.channel.node.server.ChannelPeerImpl;
 import papyrus.channel.node.server.EthereumService;
@@ -38,19 +43,28 @@ import papyrus.channel.node.server.outgoing.OutgoingChannelPoolManager;
 import papyrus.channel.protocol.ChannelPeerGrpc;
 import test.TestUtil;
 
+@ActiveProfiles("testrpc")
+@RunWith(SpringRunner.class)
+@SpringBootTest
+@TestPropertySource("classpath:/test.properties")
+@EnableConfigurationProperties({ContractsProperties.class, EthRpcProperties.class})
 public class TestServer {
 
-    private static Participant sender;
-    private static Participant receiver;
+    @Autowired
+    private ContractsProperties contractsProperties;
+    @Autowired
+    private EthRpcProperties ethRpcProperties;
+    private Participant sender;
+    private Participant receiver;
 
-    @BeforeClass
-    public static void init() throws IOException, CipherException {
+    @Before
+    public void init() throws IOException, CipherException {
         sender = new Participant("sender.wallet.json", 8801);
         receiver = new Participant("receiver.wallet.json", 8802);
     }
-    
-    @AfterClass
-    public static void finish() throws IOException, CipherException {
+
+    @After
+    public void finish() throws IOException, CipherException {
         if (sender != null) sender.stop();
         if (sender != null) receiver.stop();
     }
@@ -84,7 +98,7 @@ public class TestServer {
         Assert.assertNull(error != null ? error.getMessage() : "", error);
     }
 
-    private static class Participant {
+    private class Participant {
         ChannelClientGrpc.ChannelClientBlockingStub channelClient;
         ChannelPeerGrpc.ChannelPeerBlockingStub channelPeer;
         String address;
@@ -105,6 +119,7 @@ public class TestServer {
         private void createServer(String walletPath, int serverPort) throws IOException, CipherException, ExecutionException, InterruptedException {
             ChannelServerProperties serverProperties = new ChannelServerProperties();
             serverProperties.setPort(serverPort);
+            serverProperties.setEndpointUrl("localhost:"+serverPort);
 
             String string = Resources.toString(Resources.getResource(walletPath), StandardCharsets.UTF_8);
             ObjectMapper objectMapper = ObjectMapperFactory.getObjectMapper();
@@ -112,21 +127,10 @@ public class TestServer {
             credentials = Credentials.create(Wallet.decrypt(TestUtil.PASSWORD, walletFile));
             address = credentials.getAddress();
 
-            //TODO read from application.yaml
-            EthProperties properties = new EthProperties();
-            properties.setGasLimit(new BigInteger("2000000"));
-            properties.setGasPrice(new BigInteger("1"));
-            ContractsProperties contractsProperties = new ContractsProperties();
-            HashMap<String, Address> map = new HashMap<>();
-            map.put("EndpointRegistry", new Address("0x7040bd5616637c8a0eaf16e3c6641c1a6f7ee165"));
-            map.put("ChannelLibrary", new Address("0xef6da97a94b049aa11168f8b96b9bf75892d5834"));
-            contractsProperties.setAddresses(map);
-            EthProperties.Test test = new EthProperties.Test();
-            test.setAutoRefill(BigDecimal.TEN);
-            test.setPrivateKey(credentials.getEcKeyPair().getPrivateKey().toString(16));
-            properties.setTest(test);
-            properties.setNodeUrl("http://dev.papyrus.global");
-            EthereumConfig config = new EthereumConfig(properties);
+            EthKeyProperties keyProperties = new EthKeyProperties();
+            keyProperties.setAutoRefill(BigDecimal.TEN);
+            keyProperties.setPrivateKey(credentials.getEcKeyPair().getPrivateKey().toString(16));
+            EthereumConfig config = new EthereumConfig(keyProperties, ethRpcProperties);
             OutgoingChannelPoolManager poolManager = new OutgoingChannelPoolManager(new EthereumService(config, contractsProperties), Executors.newScheduledThreadPool(1));
             server = new NodeServer(new ChannelClientImpl(poolManager), new ChannelPeerImpl(), new ChannelAdminImpl(poolManager), serverProperties);
             server.start();
@@ -143,4 +147,5 @@ public class TestServer {
             if (server != null) server.stop();
         }
     }
+    
 }

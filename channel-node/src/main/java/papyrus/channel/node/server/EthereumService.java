@@ -13,17 +13,17 @@ import org.springframework.stereotype.Service;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.tx.ClientTransactionManager;
-import org.web3j.tx.FastRawTransactionManager;
 import org.web3j.tx.Transfer;
 import org.web3j.utils.Convert;
 
 import papyrus.channel.node.config.ContractsProperties;
-import papyrus.channel.node.config.EthProperties;
+import papyrus.channel.node.config.EthKeyProperties;
+import papyrus.channel.node.config.EthRpcProperties;
 import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.LinkingManager;
 
 @Service
-@EnableConfigurationProperties({EthProperties.class, ContractsProperties.class})
+@EnableConfigurationProperties({EthRpcProperties.class, ContractsProperties.class})
 public class EthereumService {
     private static final Logger log = LoggerFactory.getLogger(EthereumService.class);
     
@@ -37,12 +37,11 @@ public class EthereumService {
         this.config = config;
 
         web3j = config.getWeb3j();
-        EthProperties ethProperties = config.getProperties();
         manager = new LinkingManager(web3j, config);
 
-        contractsProperties.getAddresses().forEach(manager::provide);
+        contractsProperties.getPredeployed().forEach(manager::provide);
 
-        BigDecimal autoRefill = ethProperties.getTest().getAutoRefill();
+        BigDecimal autoRefill = config.getKeyProperties().getAutoRefill();
         if (autoRefill != null && autoRefill.signum() > 0) {
             String nodeAddress = config.getCredentials().getAddress();
             BigDecimal balance = getBalance(nodeAddress, Convert.Unit.ETHER);

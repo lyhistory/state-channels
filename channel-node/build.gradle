@@ -40,13 +40,14 @@ task v {
 }
 
 dependencies {
+    compile project(":smart-contracts")
 //  Spring
     compile "org.springframework.boot:spring-boot-starter:${v.springBoot}"
     compile "org.springframework.boot:spring-boot-starter-security:${v.springBoot}"
     compile "org.springframework.boot:spring-boot-configuration-processor:${v.springBoot}"
     compile "org.springframework.boot:spring-boot-starter-logging:${v.springBoot}"
 
-//Ethereum
+//Ethereum Web3
     compile ('org.web3j:core:2.3.0')
 
 
@@ -111,24 +112,6 @@ idea {
         sourceDirs += file("${projectDir}/build/generated/source/contracts/java");
     }
 }
-
-//task compile_contracts {
-//    doLast {
-//        println "Compiling contracts"
-//        exec {
-//            commandLine 'solc', '--add-std', '-o', 'build/solc', '--overwrite', 'zeppelin-solidity=node_modules/zeppelin-solidity', '--allow-paths', /Users/leonidtalalaev/Documents/Papyrus/state-channels/smart-contracts/node_modules/zeppelin-solidity/contracts contracts/*.sol --abi --bin'
-//        }
-//        exec {
-//            commandLine 'docker', 'tag', conf.dockerTag, conf.dockerTagLatest
-//        }
-//        exec {
-//            commandLine 'gcloud', 'docker', '--', 'push', conf.dockerTagLatest
-//        }
-//        exec {
-//            commandLine 'docker', 'rmi', conf.dockerTag, conf.dockerTagLatest
-//        }
-//    }
-//}
 
 test {
     // set a system property for the test JVM(s)

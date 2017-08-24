@@ -1,0 +1,4 @@
+rootProject.name = 'state-channels'
+include 'smart-contracts'
+include 'channel-node'
+

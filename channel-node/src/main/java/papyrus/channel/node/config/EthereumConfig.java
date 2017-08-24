@@ -14,31 +14,41 @@ import org.web3j.crypto.WalletUtils;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.http.HttpService;
 
-@EnableConfigurationProperties(EthProperties.class)
+@EnableConfigurationProperties({EthRpcProperties.class, EthKeyProperties.class})
 @Configuration
 public class EthereumConfig {
     private static final Logger log = LoggerFactory.getLogger(EthereumConfig.class);
-    
-    private final EthProperties properties;
+
+    private EthKeyProperties keyProperties;
+    private EthRpcProperties rpcProperties;
     private final Credentials credentials;
     private final Web3j web3j;
 
     @Autowired
-    public EthereumConfig(EthProperties properties) throws IOException, CipherException {
-        this.properties = properties;
-        if (properties.getKeyLocation() != null) {
-            credentials = WalletUtils.loadCredentials(properties.getKeyPassword(), properties.getKeyLocation());
-        } else if (properties.getTest().getPrivateKey() != null) {
-            credentials = Credentials.create(properties.getTest().getPrivateKey());
+    public EthereumConfig(EthKeyProperties keyProperties, EthRpcProperties rpcProperties) throws IOException, CipherException {
+        this.keyProperties = keyProperties;
+        this.rpcProperties = rpcProperties;
+        this.credentials = loadCredentials(keyProperties);
+        log.info("Using eth address {} and rpc server {}", credentials.getAddress(), rpcProperties.getNodeUrl());
+        web3j = Web3j.build(new HttpService(rpcProperties.getNodeUrl()));
+    }
+
+    private static Credentials loadCredentials(EthKeyProperties keyProperties) throws IOException, CipherException {
+        if (keyProperties.getKeyLocation() != null) {
+            return WalletUtils.loadCredentials(keyProperties.getKeyPassword(), keyProperties.getKeyLocation());
+        } else if (keyProperties.getPrivateKey() != null) {
+            return Credentials.create(keyProperties.getPrivateKey());
         } else {
             throw new IllegalStateException("Either node.eth.key-location or node.eth.test.private-key required");
         }
-        log.info("Using address {} and rpc server {}", credentials.getAddress(), properties.getNodeUrl());
-        web3j = Web3j.build(new HttpService(properties.getNodeUrl()));
     }
 
-    public EthProperties getProperties() {
-        return properties;
+    public EthKeyProperties getKeyProperties() {
+        return keyProperties;
+    }
+
+    public EthRpcProperties getRpcProperties() {
+        return rpcProperties;
     }
 
     @Bean

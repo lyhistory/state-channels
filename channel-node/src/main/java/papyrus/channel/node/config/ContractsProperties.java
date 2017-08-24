@@ -8,13 +8,13 @@ import org.web3j.abi.datatypes.Address;
 
 @ConfigurationProperties("channel.contracts")
 public class ContractsProperties {
-    private Map<String, Address> addresses = new HashMap<>();
+    private Map<String, Address> predeployed = new HashMap<>();
 
-    public Map<String, Address> getAddresses() {
-        return addresses;
+    public Map<String, Address> getPredeployed() {
+        return predeployed;
     }
 
-    public void setAddresses(Map<String, Address> addresses) {
-        this.addresses = addresses;
+    public void setPredeployed(Map<String, Address> predeployed) {
+        this.predeployed = predeployed;
     }
 }

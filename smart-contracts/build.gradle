@@ -1,0 +1,81 @@
+import org.web3j.codegen.SolidityFunctionWrapper
+
+group 'papyrus-global'
+version '0.1'
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.web3j:core:2.3.0'
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url "https://oss.sonatype.org/content/repositories/snapshots/"
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'idea'
+
+def SOLC_DIR = "build/solc"
+def SRC_GEN_DIR = "build/generated/source/contracts/java"
+def SRC_GEN_PACKAGE = "papyrus.channel.node.contract"
+
+sourceSets {
+    main {
+        java {
+            srcDirs = [SRC_GEN_DIR]
+        }
+    }
+}
+
+dependencies {
+    compile('org.web3j:core:2.3.0')
+}
+
+task migrate {
+    doLast {
+        println "Migrate contracts with truffle"
+        exec {
+            commandLine 'truffle', 'migrate'
+        }
+    }
+}
+
+task solc {
+    doLast {
+        def absPath = file(".").absolutePath
+        println "Compiling contracts with solc"
+        exec {
+            commandLine "bash", "-c", "solc -o ${SOLC_DIR} --overwrite zeppelin-solidity=node_modules/zeppelin-solidity --allow-paths ${absPath}/node_modules/zeppelin-solidity/contracts contracts/*.sol --abi --bin"
+        }
+    }
+}
+
+task wrappers(dependsOn:'solc') {
+    def contracts=["ECRecovery"]
+    
+    doLast {
+        def wrapper = new SolidityFunctionWrapper()
+        def upToDate = true
+        for (def contract : contracts) {
+            def binFile = file("${SOLC_DIR}/${contract}.bin")
+            def abiFile = file("${SOLC_DIR}/${contract}.abi")
+            def targetFile = file("${SRC_GEN_DIR}/${SRC_GEN_PACKAGE.replaceAll('\\.', '/')}/${contract}.java")
+            if (targetFile.lastModified() >= Math.max(binFile.lastModified(), abiFile.lastModified())) continue
+            println("Generating ${targetFile.absolutePath}")
+            def binary = GFileUtils.readFile(binFile)
+            def abi = GFileUtils.readFile(abiFile)
+            wrapper.generateJavaFiles(contract, binary, abi, file(SRC_GEN_DIR).absolutePath, SRC_GEN_PACKAGE)
+            upToDate = false
+        }
+        return upToDate
+    }
+}
+
+compileJava.dependsOn.add(wrappers)

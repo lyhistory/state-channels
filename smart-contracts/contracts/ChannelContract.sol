@@ -18,7 +18,7 @@ contract ChannelContract {
     }
 
     function ChannelContract(
-        address token_address,
+        address manager_address,
         address sender,
         address receiver,
         uint timeout)
@@ -28,8 +28,7 @@ contract ChannelContract {
 
         data.sender = sender;
         data.receiver = receiver;
-
-        data.token = StandardToken(token_address);
+        data.manager = ChannelManager(manager_address);
         data.settle_timeout = timeout;
         data.opened = block.number;
     }
@@ -44,7 +43,7 @@ contract ChannelContract {
         (success, balance) = data.deposit(amount);
 
         if (success == true) {
-            ChannelNewBalance(data.token, msg.sender, balance, 0);
+            ChannelNewBalance(data.manager.token(), msg.sender, balance, 0);
         }
 
         return success;
@@ -108,7 +107,7 @@ contract ChannelContract {
             data.closed,
             data.settled,
             data.closing_address,
-            data.token,
+            data.manager,
             data.sender,
             data.receiver,
             data.balance,
@@ -123,10 +122,10 @@ contract ChannelContract {
         return data.settle_timeout;
     }
 
-    /// @notice Returns the address of the token.
+    /// @notice Returns the address of the manager.
     /// @return The address of the token.
-    function tokenAddress() constant returns (address) {
-        return data.token;
+    function managerAddress() constant returns (address) {
+        return data.manager;
     }
 
     /// @notice Returns the block number for when the channel was opened.

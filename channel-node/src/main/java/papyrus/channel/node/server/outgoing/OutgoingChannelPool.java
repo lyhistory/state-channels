@@ -13,8 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.web3j.abi.datatypes.Address;
 
-import papyrus.channel.node.contract.ChannelContract;
-import papyrus.channel.node.contract.DeployingContract;
 import papyrus.channel.node.contract.LinkingManager;
 import papyrus.channel.node.server.EthereumService;
 
@@ -94,12 +92,12 @@ public class OutgoingChannelPool {
     }
 
     private void startCreating(OutgoingChannel channel) {
-        DeployingContract<ChannelContract> deployingContract = manager.startDeployment(ChannelContract.class);
-        channel.onDeploying(deployingContract);
+//        DeployingContract<ChannelContract> deployingContract = manager.startDeployment(ChannelContract.class);
+//        channel.onDeploying(deployingContract);
     }
 
     private void checkIfCreated(OutgoingChannel channel) {
-        manager.checkIfDeployed(channel.deployingContract).ifPresent(channel::onDeployed);
+//        manager.checkIfDeployed(channel.deployingContract).ifPresent(channel::onDeployed);
     }
 
     public void start() {

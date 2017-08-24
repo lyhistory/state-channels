@@ -12,11 +12,11 @@ channel:
     endpoint-url: http://localhost:8080
   contracts:
     predeployed:
-#     dev.papyrus.global addresses
-      ECRecovery: 0x038d89dfa14693848bbe88a8712e2003241d5a27
-      StandardToken: 0x4651731e402dacf1ab68b41a07a0dd9c87374210
-      ChannelLibrary: 0x1fccb9e4dc36b67f8f9e04a8bbccd0e31960519f
-      EndpointRegistry: 0x094bc22002094d3c0fda674047702510bc971895
+#     make 'truffle migrate' and copy contract's addresses here
+      ECRecovery: 0x92904135d828e77fd0e612200e62323ef699b1a1
+      StandardToken: 0xae514226df988d761c110d20c281110b5e969abd
+      ChannelLibrary: 0x67e9cbbc278ecb39ad5f8beeddb7cad4df004242
+      EndpointRegistry: 0x9788ff9ade8c0a0428f0d518fb0e56302b94fdc4
 logging:
   level:
    default: INFO

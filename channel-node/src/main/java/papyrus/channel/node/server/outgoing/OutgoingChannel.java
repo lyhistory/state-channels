@@ -4,10 +4,13 @@ import java.math.BigInteger;
 import java.util.concurrent.CompletableFuture;
 
 import org.web3j.abi.datatypes.Address;
+import org.web3j.crypto.Credentials;
+import org.web3j.protocol.Web3j;
+import org.web3j.tx.Contract;
+import org.web3j.tx.TransactionManager;
 
 import com.google.common.base.Preconditions;
 
-import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.contract.DeployingContract;
 import papyrus.channel.node.entity.ChannelBlockchainProperties;
 
@@ -125,6 +128,17 @@ public class OutgoingChannel {
             for (Status status : statuses) 
                 if (status == this) return true;
             return false;
+        }
+    }
+    
+    static class ChannelContract extends Contract {
+
+        protected ChannelContract(String contractBinary, String contractAddress, Web3j web3j, TransactionManager transactionManager, BigInteger gasPrice, BigInteger gasLimit) {
+            super(contractBinary, contractAddress, web3j, transactionManager, gasPrice, gasLimit);
+        }
+
+        protected ChannelContract(String contractBinary, String contractAddress, Web3j web3j, Credentials credentials, BigInteger gasPrice, BigInteger gasLimit) {
+            super(contractBinary, contractAddress, web3j, credentials, gasPrice, gasLimit);
         }
     }
 }
