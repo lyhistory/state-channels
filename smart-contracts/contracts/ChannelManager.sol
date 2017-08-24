@@ -5,6 +5,18 @@ import "./ChannelContract.sol";
 
 contract ChannelManager {
 
+    event ChannelNew(
+        address channel_address,
+        address indexed sender,
+        address indexed receiver,
+        uint settle_timeout
+    );
+
+    event ChannelDeleted(
+        address caller_address,
+        address partner
+    );
+
     StandardToken public token;
 
     mapping(address => address[]) outgoing_channels;
@@ -48,6 +60,7 @@ contract ChannelManager {
         caller_channels.push(new_channel_address);
         partner_channels.push(new_channel_address);
 
+        ChannelNew(new_channel_address, msg.sender, receiver, settle_timeout);
 
         return new_channel_address;
     }

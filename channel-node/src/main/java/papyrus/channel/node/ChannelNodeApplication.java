@@ -8,11 +8,10 @@ import papyrus.channel.node.server.NodeServer;
 
 @SpringBootApplication(scanBasePackageClasses = ChannelNodeApplication.class)
 public class ChannelNodeApplication {
-    
     public static void main(String[] args) throws InterruptedException {
         ConfigurableApplicationContext context = SpringApplication.run(ChannelNodeApplication.class, args);
         context.start();
-        context.getBean(NodeServer.class).awaitTermination();
+        NodeServer nodeServer = context.getBean(NodeServer.class);
+        nodeServer.awaitTermination();
     }
-    
 }

@@ -11,22 +11,33 @@ import javax.annotation.PreDestroy;
 
 import org.springframework.stereotype.Component;
 import org.web3j.abi.datatypes.Address;
+import org.web3j.crypto.Credentials;
 
+import papyrus.channel.node.contract.ChannelManager;
 import papyrus.channel.node.entity.ChannelBlockchainProperties;
-import papyrus.channel.node.server.EthereumService;
+import papyrus.channel.node.server.ethereum.ContractsManager;
 
 @Component
 public class OutgoingChannelPoolManager {
     private Map<Address, OutgoingChannelPool> channelPools = new ConcurrentHashMap<>();
-    
-    private EthereumService service;
-    private final ScheduledExecutorService executorService;
 
-    public OutgoingChannelPoolManager(EthereumService service, ScheduledExecutorService executorService) {
-        this.service = service;
+    private final Credentials credentials;
+    private final ContractsManager contractsManager;
+    private final ScheduledExecutorService executorService;
+    private final ChannelManager channelManagerContract;
+
+    public OutgoingChannelPoolManager(Credentials credentials, ContractsManager contractsManager, ScheduledExecutorService executorService) {
+        this.credentials = credentials;
+        this.contractsManager = contractsManager;
         this.executorService = executorService;
-        //TODO load channels from blockchain / storage ???
-        executorService.scheduleWithFixedDelay(this::watch, 1, 1, TimeUnit.SECONDS);
+        channelManagerContract = contractsManager.channelManager();
+        syncChannels();
+        executorService.scheduleWithFixedDelay(this::cleanup, 1, 1, TimeUnit.SECONDS);
+        executorService.scheduleWithFixedDelay(this::syncChannels, 60, 60, TimeUnit.SECONDS);
+    }
+
+    private void syncChannels() {
+//        channelManagerContract.getOutgoingChannels()
     }
 
     @PreDestroy
@@ -47,7 +58,7 @@ public class OutgoingChannelPoolManager {
     public void addParticipant(Address participantAddress, OutgoingChannelProperties config) {
         channelPools.compute(participantAddress, (addr, channelPool)->{
             if (channelPool == null) {
-                channelPool = new OutgoingChannelPool(participantAddress, config, service, executorService);
+                channelPool = new OutgoingChannelPool(participantAddress, config, contractsManager, executorService);
                 channelPool.start();
                 return channelPool;
             }
@@ -63,7 +74,7 @@ public class OutgoingChannelPoolManager {
         }
     }
     
-    private void watch() {
+    private void cleanup() {
         for (Address address : channelPools.keySet()) {
             channelPools.computeIfPresent(address, (a, mgr) -> {
                 if (!mgr.isFinished()) {

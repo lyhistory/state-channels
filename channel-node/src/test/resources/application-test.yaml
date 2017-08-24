@@ -1,0 +1,12 @@
+eth:
+  key:
+    auto-refill: 10
+  rpc:
+    node-url: http://localhost:8545
+    gas-price: 1
+    gas-limit: 2000000
+logging:
+  level:
+   default: INFO
+#   org.apache.http: DEBUG
+   papyrus: DEBUG

@@ -10,13 +10,6 @@ channel:
   server:
     port: 8080
     endpoint-url: http://localhost:8080
-  contracts:
-    predeployed:
-#     dev.papyrus.global addresses
-      ECRecovery: 0x038d89dfa14693848bbe88a8712e2003241d5a27
-      StandardToken: 0x4651731e402dacf1ab68b41a07a0dd9c87374210
-      ChannelLibrary: 0x1fccb9e4dc36b67f8f9e04a8bbccd0e31960519f
-      EndpointRegistry: 0x094bc22002094d3c0fda674047702510bc971895
 logging:
   level:
    default: INFO

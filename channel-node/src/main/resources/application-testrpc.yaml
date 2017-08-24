@@ -11,12 +11,13 @@ channel:
     port: 8080
     endpoint-url: http://localhost:8080
   contracts:
-    predeployed:
 #     make 'truffle migrate' and copy contract's addresses here
-      ECRecovery: 0x92904135d828e77fd0e612200e62323ef699b1a1
-      StandardToken: 0xae514226df988d761c110d20c281110b5e969abd
-      ChannelLibrary: 0x67e9cbbc278ecb39ad5f8beeddb7cad4df004242
-      EndpointRegistry: 0x9788ff9ade8c0a0428f0d518fb0e56302b94fdc4
+    predeployed:
+      ECRecovery: 0x0876620f985b525b27a77440d9b879cc94df0600
+      ChannelLibrary: 0x55b8e31492aa2a411fd3006dbb485ed086114ff5
+      EndpointRegistry: 0x83647e5e8d9178dbb59b73fdc71604df7c29ad94
+      PapyrusToken: 0x54fa4f9a0aa35013927fcba9b364d2b3ac7bdeff
+      ChannelManager: 0xe76a3e4aeaaf72ca8c6d24da45af548c796fbf39
 logging:
   level:
    default: INFO

@@ -58,7 +58,12 @@ task solc {
 }
 
 task wrappers(dependsOn:'solc') {
-    def contracts=["ECRecovery"]
+    def contracts=[
+            "EndpointRegistry",
+            "ChannelManager",
+            "ChannelContract",
+            "PapyrusToken",
+    ]
     
     doLast {
         def wrapper = new SolidityFunctionWrapper()
@@ -68,7 +73,7 @@ task wrappers(dependsOn:'solc') {
             def abiFile = file("${SOLC_DIR}/${contract}.abi")
             def targetFile = file("${SRC_GEN_DIR}/${SRC_GEN_PACKAGE.replaceAll('\\.', '/')}/${contract}.java")
             if (targetFile.lastModified() >= Math.max(binFile.lastModified(), abiFile.lastModified())) continue
-            println("Generating ${targetFile.absolutePath}")
+            println("Generating ${contract}.java")
             def binary = GFileUtils.readFile(binFile)
             def abi = GFileUtils.readFile(abiFile)
             wrapper.generateJavaFiles(contract, binary, abi, file(SRC_GEN_DIR).absolutePath, SRC_GEN_PACKAGE)

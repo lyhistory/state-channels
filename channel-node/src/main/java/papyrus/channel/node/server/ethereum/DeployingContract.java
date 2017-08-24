@@ -1,4 +1,4 @@
-package papyrus.channel.node.contract;
+package papyrus.channel.node.server.ethereum;
 
 import org.web3j.tx.Contract;
 

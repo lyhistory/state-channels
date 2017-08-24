@@ -1,23 +1,24 @@
 package papyrus.channel.node.server.outgoing;
 
 import java.math.BigInteger;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.web3j.abi.datatypes.Address;
-import org.web3j.crypto.Credentials;
-import org.web3j.protocol.Web3j;
-import org.web3j.tx.Contract;
-import org.web3j.tx.TransactionManager;
 
 import com.google.common.base.Preconditions;
 
-import papyrus.channel.node.contract.DeployingContract;
+import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.entity.ChannelBlockchainProperties;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class OutgoingChannel {
+    private static final Logger log = LoggerFactory.getLogger(OutgoingChannel.class);
+    
     private final ChannelBlockchainProperties properties;
     private final Address receiverAddress;
     private Status status;
@@ -26,8 +27,7 @@ public class OutgoingChannel {
     private long created;
     private long closed;
     private long settled;
-    CompletableFuture<?> currentAction;
-    DeployingContract<ChannelContract> deployingContract;
+    CompletableFuture<ChannelContract> deployingContract;
     ChannelContract contract;
 
     public OutgoingChannel(Address receiverAddress, ChannelBlockchainProperties properties) {
@@ -48,7 +48,7 @@ public class OutgoingChannel {
         return channelAddress;
     }
 
-    public void onDeploying(DeployingContract<ChannelContract> deployingContract) {
+    public void onDeploying(CompletableFuture<ChannelContract> deployingContract) {
         checkStatus(Status.NEW);
         checkNotNull(deployingContract);
         this.deployingContract = deployingContract;
@@ -56,8 +56,10 @@ public class OutgoingChannel {
     }
 
     public void onDeployed(ChannelContract contract) {
+        Preconditions.checkNotNull(contract);
         checkStatus(Status.CREATING);
 
+        this.deployingContract = null;
         this.channelAddress = new Address(contract.getContractAddress());
         this.created = contract.getTransactionReceipt().get().getBlockNumber().longValueExact();
         this.contract = contract;
@@ -82,19 +84,6 @@ public class OutgoingChannel {
         return status;
     }
 
-    public boolean isActionInProgress() {
-        if (currentAction != null) {
-            if (currentAction.isDone()) return true;
-            currentAction = null;
-        }
-        return false;
-    }
-
-    public void setActionInProgress(CompletableFuture<?> action) {
-        Preconditions.checkState(!isActionInProgress());
-        currentAction = action;
-    }
-
     public OutgoingChannelState toState() {
         Preconditions.checkState(channelAddress != null, "Invalid status: %s", status);
         return new OutgoingChannelState(channelAddress);
@@ -103,6 +92,12 @@ public class OutgoingChannel {
     String getAddressSafe() {
         if (channelAddress != null) return channelAddress.toString();
         return status.toString();
+    }
+
+    public Optional<ChannelContract> checkIfDeployed() {
+        checkStatus(Status.CREATING);
+        Preconditions.checkNotNull(deployingContract);
+        return Optional.ofNullable(deployingContract.getNow(null));
     }
 
     public enum Status {
@@ -128,17 +123,6 @@ public class OutgoingChannel {
             for (Status status : statuses) 
                 if (status == this) return true;
             return false;
-        }
-    }
-    
-    static class ChannelContract extends Contract {
-
-        protected ChannelContract(String contractBinary, String contractAddress, Web3j web3j, TransactionManager transactionManager, BigInteger gasPrice, BigInteger gasLimit) {
-            super(contractBinary, contractAddress, web3j, transactionManager, gasPrice, gasLimit);
-        }
-
-        protected ChannelContract(String contractBinary, String contractAddress, Web3j web3j, Credentials credentials, BigInteger gasPrice, BigInteger gasLimit) {
-            super(contractBinary, contractAddress, web3j, credentials, gasPrice, gasLimit);
         }
     }
 }

@@ -32,8 +32,9 @@
 package papyrus.channel.node.server;
 
 import java.io.IOException;
-import java.util.logging.Logger;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.context.event.ContextStoppedEvent;
@@ -48,7 +49,7 @@ import papyrus.channel.node.server.admin.ChannelAdminImpl;
 @Service
 @EnableConfigurationProperties(ChannelServerProperties.class)
 public class NodeServer {
-    private static final Logger logger = Logger.getLogger(NodeServer.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(NodeServer.class);
 
     private Server grpcServer;
     
@@ -79,7 +80,7 @@ public class NodeServer {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        logger.info("Server started, listening on " + grpcServer.getPort());
+        log.info("Server started, listening on " + grpcServer.getPort());
     }
 
     @EventListener(ContextStoppedEvent.class)
