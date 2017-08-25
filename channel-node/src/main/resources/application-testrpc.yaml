@@ -13,11 +13,11 @@ channel:
   contracts:
 #     make 'truffle migrate' and copy contract's addresses here
     predeployed:
-      ECRecovery: 0x0287f03c35c996dc07c5f1e10c46894f37fcbe02
-      ChannelLibraryContract: 0xaaa7fefb95bd85a5d28fb17645e086ef800e519e
-      EndpointRegistryContract: 0xee1dae888e7fb8ca411289f2afef283d2361a147
-      PapyrusToken: 0xa0520b53dab2c5d70fdbea27e3df1a5cfdcd3270
-      ChannelManagerContract: 0xc9fe1fa5416d41fb5ce075437205eb2e80cecaaa
+      ECRecovery: 0x902f5235ac0d50b48afc5fe6a928ed6197b41e0b
+      ChannelLibrary: 0xbc3ea480906369c28ebedb5195739c41a42b1010
+      EndpointRegistryContract: 0x5155ca078cdb33651750d4421b4233223fad051b
+      PapyrusToken: 0x2af1685d1e1efefb161bfe0b4cad6edc58e74182
+      ChannelManagerContract: 0x6ef5d0fd5743063b434da5257a790b019f7fdf33
 logging:
   level:
    default: INFO

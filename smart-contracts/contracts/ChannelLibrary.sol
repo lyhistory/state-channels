@@ -6,7 +6,7 @@ import './ChannelManagerContract.sol';
 
 //Papyrus State Channel Library
 //moved to separate library to save gas
-library ChannelLibraryContract {
+library ChannelLibrary {
     struct StateUpdate {
         uint256 completed_transfers;
     }
@@ -21,6 +21,7 @@ library ChannelLibraryContract {
     
         address sender;
         address receiver;
+        address signer;
         uint256 balance;
 
         StateUpdate sender_update; 

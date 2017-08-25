@@ -12,9 +12,8 @@ import javax.annotation.PreDestroy;
 
 import org.springframework.stereotype.Component;
 import org.web3j.abi.datatypes.Address;
-import org.web3j.crypto.Credentials;
 
-import papyrus.channel.node.contract.ChannelManagerContract;
+import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.entity.BlockchainChannelProperties;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.ethereum.ContractsManager;
@@ -25,19 +24,17 @@ public class OutgoingChannelManager {
     private final Map<Address, OutgoingChannelPool> channelPools = new ConcurrentHashMap<>();
     private final Map<Address, OutgoingChannelState> allChannelsByAddress = new ConcurrentHashMap<>();
 
-    private final Address senderAddress;
-    private final Credentials credentials;
+    private final Address signerAddress;
     private final ContractsManager contractsManager;
     private final ScheduledExecutorService executorService;
     private final PeerConnectionManager peerConnectionManager;
-    private final ChannelManagerContract channelManagerContract;
+    private final EthereumConfig ethereumConfig;
 
-    public OutgoingChannelManager(Credentials credentials, ContractsManager contractsManager, ScheduledExecutorService executorService, PeerConnectionManager peerConnectionManager) {
-        this.credentials = credentials;
-        senderAddress = new Address(credentials.getAddress());
+    public OutgoingChannelManager(EthereumConfig ethereumConfig, ContractsManager contractsManager, ScheduledExecutorService executorService, PeerConnectionManager peerConnectionManager) {
+        this.ethereumConfig = ethereumConfig;
+        signerAddress = ethereumConfig.getSignerAddress();;
         this.contractsManager = contractsManager;
         this.executorService = executorService;
-        channelManagerContract = contractsManager.channelManager();
         this.peerConnectionManager = peerConnectionManager;
         syncChannels();
         executorService.scheduleWithFixedDelay(this::cleanup, 1, 1, TimeUnit.SECONDS);
@@ -66,7 +63,15 @@ public class OutgoingChannelManager {
     public void addParticipant(Address participantAddress, OutgoingChannelProperties config) {
         channelPools.compute(participantAddress, (addr, channelPool)->{
             if (channelPool == null) {
-                channelPool = new OutgoingChannelPool(this, config, contractsManager, peerConnectionManager, executorService, credentials, participantAddress);
+                channelPool = new OutgoingChannelPool(
+                    this, 
+                    config, 
+                    contractsManager, 
+                    peerConnectionManager, 
+                    executorService, 
+                    ethereumConfig, 
+                    participantAddress
+                );
                 channelPool.start();
                 return channelPool;
             }
@@ -95,7 +100,7 @@ public class OutgoingChannelManager {
     }
 
     public void registerTransfer(SignedTransfer signedTransfer) throws SignatureException {
-        signedTransfer.verifySignature(senderAddress::equals);
+        signedTransfer.verifySignature(signerAddress::equals);
         OutgoingChannelState channelState = allChannelsByAddress.get(signedTransfer.getChannelAddress());
         if (channelState == null) {
             throw new IllegalStateException("Unknown channel address: " + signedTransfer.getChannelAddress());

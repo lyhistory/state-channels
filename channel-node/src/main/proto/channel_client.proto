@@ -5,6 +5,7 @@ import "common.proto";
 option java_multiple_files = true;
 option java_package = "papyrus.channel.node";
 
+// Light client interface for outgoing channels
 service OutgoingChannelClient {
     // Request outgoing channel state with given participant 
     rpc GetChannels (ChannelStatusRequest) returns (ChannelStatusResponse);
@@ -13,6 +14,7 @@ service OutgoingChannelClient {
     rpc RegisterTransfers (RegisterTransfersRequest) returns (RegisterTransfersResponse);
 }
 
+// Light client interface for incoming channels
 service IncomingChannelClient {
     // Request incoming channels' states with given participant 
     rpc GetChannels (ChannelStatusRequest) returns (ChannelStatusResponse);
@@ -41,10 +43,15 @@ message RegisterTransfersRequest {
     repeated TransferMessage transfer = 1;
 }
 
+// Micropayment
 message TransferMessage {
+    // Unique id
     string transfer_id = 1;
+    // Payment channel address as HEX
     string channel_address = 2;
+    // Payment value in wei as decimal string
     string value = 3;
+    // Signature as HEX
     string signature = 4;
 }
 

@@ -8,6 +8,7 @@ contract ChannelManagerContract {
     event ChannelNew(
         address channel_address,
         address indexed sender,
+        address signer,
         address indexed receiver,
         uint settle_timeout
     );
@@ -44,12 +45,13 @@ contract ChannelManagerContract {
     /// @param receiver The address of the receiver
     /// @param settle_timeout The settle timeout in blocks
     /// @return The address of the newly created NettingChannelContract.
-    function newChannel(address receiver, uint settle_timeout)
+    function newChannel(address signer, address receiver, uint settle_timeout)
         returns (address)
     {
         address new_channel_address = new ChannelContract(
             this,
             msg.sender,
+            signer,
             receiver,
             settle_timeout
         );
@@ -60,7 +62,7 @@ contract ChannelManagerContract {
         caller_channels.push(new_channel_address);
         partner_channels.push(new_channel_address);
 
-        ChannelNew(new_channel_address, msg.sender, receiver, settle_timeout);
+        ChannelNew(new_channel_address, msg.sender, signer, receiver, settle_timeout);
 
         return new_channel_address;
     }

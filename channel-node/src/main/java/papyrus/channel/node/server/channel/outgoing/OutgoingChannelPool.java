@@ -21,6 +21,7 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import com.google.common.base.Preconditions;
 
 import papyrus.channel.Error;
+import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.contract.ChannelManagerContract;
 import papyrus.channel.node.server.channel.SignedChannelState;
@@ -44,6 +45,7 @@ public class OutgoingChannelPool {
     private final OutgoingChannelManager poolManager;
     private final PeerConnectionManager peerConnectionManager;
     private final Address senderAddress;
+    private final Address signerAddress;
 
     private ScheduledFuture<?> watchFuture;
     private final Credentials credentials;
@@ -57,13 +59,14 @@ public class OutgoingChannelPool {
         ContractsManager contractsManager,
         PeerConnectionManager peerConnectionManager,
         ScheduledExecutorService executorService, 
-        Credentials credentials, 
+        EthereumConfig ethereumConfig, 
         Address receiverAddress
     ) {
         this.poolManager = poolManager;
         this.peerConnectionManager = peerConnectionManager;
-        this.senderAddress = new Address(credentials.getAddress());
-        this.credentials = credentials;
+        this.credentials = ethereumConfig.getCredentials();
+        this.senderAddress = ethereumConfig.getEthAddress();
+        this.signerAddress = ethereumConfig.getSignerAddress();
         this.receiverAddress = receiverAddress;
         this.config = config;
         this.contractsManager = contractsManager;
@@ -82,7 +85,7 @@ public class OutgoingChannelPool {
         try {
             long activeOrOpening = channels.stream().filter(c -> c.getStatus().isAnyOf(ACTIVE, CREATED, CREATING)).count();
             if (activeOrOpening < config.getActiveChannels()) {
-                OutgoingChannelState channel = new OutgoingChannelState(senderAddress, receiverAddress, config.getBlockchainProperties());
+                OutgoingChannelState channel = new OutgoingChannelState(senderAddress, signerAddress, receiverAddress, config.getBlockchainProperties());
                 channels.add(channel);
             }
             for (OutgoingChannelState channel : channels) {
@@ -145,7 +148,11 @@ public class OutgoingChannelPool {
     }
 
     private void startCreating(OutgoingChannelState channel) {
-        Future<TransactionReceipt> future = contractsManager.channelManager().newChannel(receiverAddress, new Uint256(config.getBlockchainProperties().getSettleTimeout()));
+        Future<TransactionReceipt> future = contractsManager.channelManager().newChannel(
+            signerAddress, 
+            receiverAddress, 
+            new Uint256(config.getBlockchainProperties().getSettleTimeout())
+        );
         //todo store transaction hash instead of future
         channel.onDeploying(CompletableFuture.supplyAsync(() -> {
             try {

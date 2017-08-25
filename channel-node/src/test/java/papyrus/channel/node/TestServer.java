@@ -15,6 +15,7 @@ import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
 
 import papyrus.channel.Error;
+import papyrus.channel.node.config.EthKeyProperties;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelManager;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelState;
@@ -28,6 +29,7 @@ public class TestServer {
     private ConfigurableApplicationContext receiver;
     private PeerConnection senderClient;
     private PeerConnection receiverClient;
+    private Credentials signerCredentials;
 
     @Before
     public void init() throws IOException, CipherException {
@@ -36,6 +38,7 @@ public class TestServer {
         sender.start();
         receiver.start();
         senderClient = sender.getBean(PeerConnection.class);
+        signerCredentials = Credentials.create(sender.getBean(EthKeyProperties.class).getSignerPrivateKey());
         Assert.assertNotNull(senderClient);
         receiverClient = receiver.getBean(PeerConnection.class);
         Assert.assertNotNull(receiverClient);
@@ -58,6 +61,8 @@ public class TestServer {
     @Test
     public void testSendEther() throws InterruptedException {
         //add participant - this will initiate channels opening
+        Address senderAddress = new Address(sender.getBean(Credentials.class).getAddress());
+
         senderClient.getClientAdmin().addParticipant(
             AddParticipantRequest.newBuilder()
                 .setParticipantAddress(receiver.getBean(Credentials.class).getAddress())
@@ -81,9 +86,8 @@ public class TestServer {
 
         String channelAddress = response.getChannel(0).getChannelAddress();
 
-        Credentials senderCredentials = sender.getBean(Credentials.class);
         SignedTransfer transfer = new SignedTransfer("1", channelAddress, "1000");
-        transfer.sign(senderCredentials.getEcKeyPair());
+        transfer.sign(signerCredentials.getEcKeyPair());
         
         assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
             .addTransfer(transfer.toMessage())
@@ -93,7 +97,7 @@ public class TestServer {
         Thread.sleep(2000);
 
         IncomingChannelManager incomingChannelManager = receiver.getBean(IncomingChannelManager.class);
-        Collection<IncomingChannelState> channels = incomingChannelManager.getChannels(new Address(senderCredentials.getAddress()));
+        Collection<IncomingChannelState> channels = incomingChannelManager.getChannels(senderAddress);
         Assert.assertEquals(1, channels.size());
         IncomingChannelState channelState = channels.iterator().next();
         Assert.assertEquals(BigInteger.valueOf(1000), channelState.getReceiverState().getCompletedTransfers());

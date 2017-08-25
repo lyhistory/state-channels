@@ -32,8 +32,8 @@ public class OutgoingChannelState {
     private long currentNonce;
     private long syncedNonce;
 
-    public OutgoingChannelState(Address senderAddress, Address receiverAddress, BlockchainChannelProperties properties) {
-        channel = new BlockchainChannel(senderAddress, receiverAddress);
+    public OutgoingChannelState(Address senderAddress, Address signerAddress, Address receiverAddress, BlockchainChannelProperties properties) {
+        channel = new BlockchainChannel(senderAddress, signerAddress, receiverAddress);
         channel.setProperties(properties);
         setStatus(Status.NEW);
     }

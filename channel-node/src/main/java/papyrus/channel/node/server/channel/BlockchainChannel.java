@@ -16,6 +16,7 @@ import papyrus.channel.node.entity.BlockchainChannelProperties;
 
 public class BlockchainChannel {
     private final Address senderAddress;
+    private final Address signerAddress;
     private final Address receiverAddress;
     private BigInteger balance;
     private BlockchainChannelProperties properties;
@@ -29,40 +30,62 @@ public class BlockchainChannel {
 
     ChannelContract contract;
 
-    public BlockchainChannel(Address senderAddress, Address receiverAddress) {
+    public BlockchainChannel(Address senderAddress, Address signerAddress, Address receiverAddress) {
+        Preconditions.checkNotNull(senderAddress);
+        Preconditions.checkNotNull(signerAddress);
+        Preconditions.checkNotNull(receiverAddress);
+        
         this.senderAddress = senderAddress;
+        this.signerAddress = signerAddress;
         this.receiverAddress = receiverAddress;
     }
 
     private BlockchainChannel(Address managerAddress, ChannelContract contract, List<Type> st) {
-        Preconditions.checkArgument(st.size() == 11);
+        Preconditions.checkArgument(st.size() == 12);
 //            uint settle_timeout,
         long timeout = ((Uint) st.get(0)).getValue().longValueExact();
+        Preconditions.checkState(timeout > 0);
         properties = new BlockchainChannelProperties(timeout);
 //            uint opened,
         created = ((Uint) st.get(1)).getValue().longValueExact();
+        Preconditions.checkState(created > 0);
 //            uint closed,
         closed = ((Uint) st.get(2)).getValue().longValueExact();
+        Preconditions.checkState(closed >= 0);
 //            uint settled,
         settled = ((Uint) st.get(3)).getValue().longValueExact();
+        Preconditions.checkState(settled >= 0);
 //            address closing_address,
-        closingAddress = ((Address) st.get(4));
+        closingAddress = address(st.get(4));
 //            address manager,
-        Address manager_address = ((Address) st.get(5));
-        Preconditions.checkArgument(managerAddress.equals(manager_address));
+        Address manager_address = address(st.get(5));
+        Preconditions.checkArgument(managerAddress.equals(manager_address), "Wrong manager address: %s", manager_address);
 //            address sender,
-        senderAddress = ((Address) st.get(6));
+        senderAddress = address(st.get(6));
+        Preconditions.checkState(senderAddress != null);
+//            address signer,
+        signerAddress = address(st.get(7));
+        Preconditions.checkState(signerAddress != null);
 //            address receiver,
-        receiverAddress = ((Address) st.get(7));
+        receiverAddress = address(st.get(8));
+        Preconditions.checkState(receiverAddress != null);
 //            uint256 balance,
-        balance = ((Uint) st.get(8)).getValue();
+        balance = ((Uint) st.get(9)).getValue();
+        Preconditions.checkState(balance.signum() >= 0);
 //            uint256 sender_update.completed_transfers,
-        senderUpdateTransfers = ((Uint) st.get(9)).getValue();
+        senderUpdateTransfers = ((Uint) st.get(10)).getValue();
+        Preconditions.checkState(senderUpdateTransfers.signum() >= 0);
 //            uint256 receiver_update.completed_transfers
-        receiverUpdateTransfers = ((Uint) st.get(10)).getValue();
+        receiverUpdateTransfers = ((Uint) st.get(11)).getValue();
+        Preconditions.checkState(receiverUpdateTransfers.signum() >= 0);
         this.contract = contract;
     }
-    
+
+    private Address address(Type address) {
+        Address a = (Address) address;
+        return a != null && !a.getValue().equals(BigInteger.ZERO) ? a : null;
+    }
+
     public Address getSenderAddress() {
         return senderAddress;
     }
@@ -164,4 +187,7 @@ public class BlockchainChannel {
         }
     }
 
+    public Address getsignerAddress() {
+        return signerAddress;
+    }
 }

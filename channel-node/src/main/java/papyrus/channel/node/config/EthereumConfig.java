@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.WalletUtils;
@@ -18,6 +19,7 @@ import org.web3j.protocol.http.HttpService;
 @Configuration
 public class EthereumConfig {
     private static final Logger log = LoggerFactory.getLogger(EthereumConfig.class);
+    private final Address signerAddress;
 
     private EthKeyProperties keyProperties;
     private EthRpcProperties rpcProperties;
@@ -29,8 +31,11 @@ public class EthereumConfig {
         this.keyProperties = keyProperties;
         this.rpcProperties = rpcProperties;
         this.credentials = loadCredentials(keyProperties);
-        log.info("Using eth address {} and rpc server {}", credentials.getAddress(), rpcProperties.getNodeUrl());
         web3j = Web3j.build(new HttpService(rpcProperties.getNodeUrl()));
+        Address signerAddress = keyProperties.getSignerAddress();
+        this.signerAddress = signerAddress != null ? signerAddress : new Address(credentials.getAddress());
+        
+        log.info("Configured ETH payment account:{}, signer address:{} and rpc server: {}", credentials.getAddress(), signerAddress, rpcProperties.getNodeUrl());
     }
 
     private static Credentials loadCredentials(EthKeyProperties keyProperties) throws IOException, CipherException {
@@ -49,6 +54,14 @@ public class EthereumConfig {
 
     public EthRpcProperties getRpcProperties() {
         return rpcProperties;
+    }
+
+    public Address getEthAddress() {
+        return new Address(credentials.getAddress());
+    }
+
+    public Address getSignerAddress() {
+        return signerAddress;
     }
 
     @Bean
