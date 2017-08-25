@@ -6,7 +6,7 @@
 
 pragma solidity ^0.4.11;
 
-contract EndpointRegistry{
+contract EndpointRegistryContract {
     event AddressRegistered(address indexed eth_address, string socket);
 
     // Mapping of Ethereum Addresses => SocketEndpoints

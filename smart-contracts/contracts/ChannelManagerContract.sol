@@ -3,7 +3,7 @@ pragma solidity ^0.4.11;
 import 'zeppelin-solidity/contracts/token/StandardToken.sol';
 import "./ChannelContract.sol";
 
-contract ChannelManager {
+contract ChannelManagerContract {
 
     event ChannelNew(
         address channel_address,

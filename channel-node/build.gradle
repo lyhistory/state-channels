@@ -109,8 +109,11 @@ idea {
         // https://discuss.gradle.org/t/support-for-intellij-2016/15294/8
         sourceDirs += file("${projectDir}/build/generated/source/proto/main/java");
         sourceDirs += file("${projectDir}/build/generated/source/proto/main/grpc");
-        sourceDirs += file("${projectDir}/build/generated/source/contracts/java");
     }
+}
+
+task cleanProto(type:Delete) {
+    delete 'build/generated/source/proto'  
 }
 
 test {

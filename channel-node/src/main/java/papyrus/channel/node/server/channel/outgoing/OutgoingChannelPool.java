@@ -1,4 +1,4 @@
-package papyrus.channel.node.server.outgoing;
+package papyrus.channel.node.server.channel.outgoing;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,17 +15,23 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.generated.Uint256;
+import org.web3j.crypto.Credentials;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 
 import com.google.common.base.Preconditions;
 
+import papyrus.channel.Error;
 import papyrus.channel.node.contract.ChannelContract;
-import papyrus.channel.node.contract.ChannelManager;
+import papyrus.channel.node.contract.ChannelManagerContract;
+import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.ethereum.ContractsManager;
+import papyrus.channel.node.server.peer.PeerConnection;
+import papyrus.channel.node.server.peer.PeerConnectionManager;
+import papyrus.channel.protocol.ChannelUpdateRequest;
 
-import static papyrus.channel.node.server.outgoing.OutgoingChannel.Status.ACTIVE;
-import static papyrus.channel.node.server.outgoing.OutgoingChannel.Status.CREATED;
-import static papyrus.channel.node.server.outgoing.OutgoingChannel.Status.CREATING;
+import static papyrus.channel.node.server.channel.outgoing.OutgoingChannelState.Status.ACTIVE;
+import static papyrus.channel.node.server.channel.outgoing.OutgoingChannelState.Status.CREATED;
+import static papyrus.channel.node.server.channel.outgoing.OutgoingChannelState.Status.CREATING;
 
 /**
  * Channel pool for single receiving address.
@@ -35,13 +41,29 @@ public class OutgoingChannelPool {
     
     private final ScheduledExecutorService executorService;
     private final ContractsManager contractsManager;
+    private final OutgoingChannelManager poolManager;
+    private final PeerConnectionManager peerConnectionManager;
+    private final Address senderAddress;
 
     private ScheduledFuture<?> watchFuture;
+    private final Credentials credentials;
     private Address receiverAddress;
     private volatile OutgoingChannelProperties config;
-    private final List<OutgoingChannel> channels = Collections.synchronizedList(new ArrayList<>());
-    
-    public OutgoingChannelPool(Address receiverAddress, OutgoingChannelProperties config, ContractsManager contractsManager, ScheduledExecutorService executorService) {
+    private final List<OutgoingChannelState> channels = Collections.synchronizedList(new ArrayList<>());
+
+    public OutgoingChannelPool(
+        OutgoingChannelManager poolManager, 
+        OutgoingChannelProperties config, 
+        ContractsManager contractsManager,
+        PeerConnectionManager peerConnectionManager,
+        ScheduledExecutorService executorService, 
+        Credentials credentials, 
+        Address receiverAddress
+    ) {
+        this.poolManager = poolManager;
+        this.peerConnectionManager = peerConnectionManager;
+        this.senderAddress = new Address(credentials.getAddress());
+        this.credentials = credentials;
         this.receiverAddress = receiverAddress;
         this.config = config;
         this.contractsManager = contractsManager;
@@ -60,11 +82,11 @@ public class OutgoingChannelPool {
         try {
             long activeOrOpening = channels.stream().filter(c -> c.getStatus().isAnyOf(ACTIVE, CREATED, CREATING)).count();
             if (activeOrOpening < config.getActiveChannels()) {
-                OutgoingChannel channel = new OutgoingChannel(receiverAddress, config.getBlockchainProperties());
+                OutgoingChannelState channel = new OutgoingChannelState(senderAddress, receiverAddress, config.getBlockchainProperties());
                 channels.add(channel);
             }
-            for (OutgoingChannel channel : channels) {
-                OutgoingChannel.Status status = channel.getStatus();
+            for (OutgoingChannelState channel : channels) {
+                OutgoingChannelState.Status status = channel.getStatus();
                 try {
                     makeTransitions(channel);
                     if (channel.getStatus() != status) {
@@ -80,7 +102,7 @@ public class OutgoingChannelPool {
         }
     }
 
-    private void makeTransitions(OutgoingChannel channel) {
+    private void makeTransitions(OutgoingChannelState channel) {
         switch (channel.getStatus()) {
             case NEW:
                 startCreating(channel);
@@ -93,6 +115,9 @@ public class OutgoingChannelPool {
                 channel.setActive();
                 break;
             case ACTIVE:
+                if (channel.isNeedsSync()) {
+                    syncChannel(channel);
+                }
                 break;
             case SUSPENDING:
                 break;
@@ -105,13 +130,27 @@ public class OutgoingChannelPool {
         }
     }
 
-    private void startCreating(OutgoingChannel channel) {
+    private void syncChannel(OutgoingChannelState channel) {
+        PeerConnection connection = peerConnectionManager.getConnection(receiverAddress);
+        SignedChannelState state = channel.createState();
+        state.sign(credentials.getEcKeyPair());
+        Error error = connection.getChannelPeer().update(
+            ChannelUpdateRequest.newBuilder()
+                .setState(state.toMessage())
+                .build()
+        ).getError();
+        if (error == null) {
+            channel.syncCompleted(state);
+        }
+    }
+
+    private void startCreating(OutgoingChannelState channel) {
         Future<TransactionReceipt> future = contractsManager.channelManager().newChannel(receiverAddress, new Uint256(config.getBlockchainProperties().getSettleTimeout()));
         //todo store transaction hash instead of future
         channel.onDeploying(CompletableFuture.supplyAsync(() -> {
             try {
                 TransactionReceipt receipt = future.get();
-                List<ChannelManager.ChannelNewEventResponse> events = contractsManager.channelManager().getChannelNewEvents(receipt);
+                List<ChannelManagerContract.ChannelNewEventResponse> events = contractsManager.channelManager().getChannelNewEvents(receipt);
                 if (events.isEmpty()) {
                     throw new IllegalStateException("Channel contract was not created");
                 }
@@ -126,8 +165,11 @@ public class OutgoingChannelPool {
         }));
     }
 
-    private void checkIfCreated(OutgoingChannel channel) {
-        channel.checkIfDeployed().ifPresent(channel::onDeployed);
+    private void checkIfCreated(OutgoingChannelState channel) {
+        channel.checkIfDeployed().ifPresent(contract -> {
+            channel.onDeployed(contract);
+            poolManager.putChannel(channel);
+        });
     }
 
     public void start() {
@@ -143,7 +185,7 @@ public class OutgoingChannelPool {
 
     public List<OutgoingChannelState> getChannelsState() {
         synchronized (channels) {
-            return channels.stream().filter(c -> c.getStatus() == ACTIVE).map(OutgoingChannel::toState).collect(Collectors.toList());
+            return channels.stream().filter(c -> c.getStatus() == ACTIVE).collect(Collectors.toList());
         }
     }
 }

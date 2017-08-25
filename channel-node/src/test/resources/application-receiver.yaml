@@ -4,4 +4,4 @@ eth:
 channel:
   server:
     port: 10080
-    endpoint-url: http://localhost:10080
+    endpoint-url: grpc://localhost:10080

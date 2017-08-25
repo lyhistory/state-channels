@@ -3,7 +3,6 @@ package papyrus.channel.node.server.ethereum;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -28,9 +27,8 @@ import com.google.common.base.Throwables;
 
 import papyrus.channel.node.config.ContractsProperties;
 import papyrus.channel.node.config.EthereumConfig;
-import papyrus.channel.node.contract.ChannelManager;
-import papyrus.channel.node.contract.EndpointRegistry;
-import papyrus.channel.node.contract.EthUtil;
+import papyrus.channel.node.contract.ChannelManagerContract;
+import papyrus.channel.node.contract.EndpointRegistryContract;
 import papyrus.channel.node.contract.LinkingManager;
 
 @Service
@@ -41,8 +39,8 @@ public class ContractsManager {
     private final EthereumConfig config;
     private final LinkingManager manager;
     private final ContractsProperties contractsProperties;
-    private final EndpointRegistry registry;
-    private final ChannelManager channelManager;
+    private final EndpointRegistryContract registry;
+    private final ChannelManagerContract channelManager;
     private final Web3j web3j;
 
     public ContractsManager(EthereumConfig config, ContractsProperties contractsProperties) throws IOException {
@@ -61,8 +59,8 @@ public class ContractsManager {
             manager.provide(name, contractAddress);
         });
         
-        registry = loadPredeployedContract(EndpointRegistry.class);
-        channelManager = loadPredeployedContract(ChannelManager.class);
+        registry = loadPredeployedContract(EndpointRegistryContract.class);
+        channelManager = loadPredeployedContract(ChannelManagerContract.class);
     }
 
     @Bean
@@ -70,13 +68,11 @@ public class ContractsManager {
         return manager;
     }
 
-    @Bean
-    public ChannelManager channelManager() {
+    public ChannelManagerContract channelManager() {
         return channelManager;
     }
 
-    @Bean
-    public EndpointRegistry endpointRegistry() {
+    public EndpointRegistryContract endpointRegistry() {
         return registry;
     }
 
@@ -125,7 +121,7 @@ public class ContractsManager {
     }
 
     private String checkContractExists(String name, String contractAddress) throws IOException {
-        String code = EthUtil.getContractCode(web3j, contractAddress);
+        String code = papyrus.channel.node.server.ethereum.EthUtil.getContractCode(web3j, contractAddress);
         if (code.equals("0")) {
             throw new IllegalStateException("Contract " + name + " is not deployed at address: " + contractAddress);
         }

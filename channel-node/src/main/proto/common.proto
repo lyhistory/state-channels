@@ -15,6 +15,10 @@ message Error {
     string message = 2;
 }
 
+message BasicResponse {
+    Error error = 1;
+}
+
 message ChannelProperties {
     uint32 settle_timeout = 1;
     uint32 close_timeout = 2;

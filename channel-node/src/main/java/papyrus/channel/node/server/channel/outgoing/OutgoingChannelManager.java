@@ -1,5 +1,6 @@
-package papyrus.channel.node.server.outgoing;
+package papyrus.channel.node.server.channel.outgoing;
 
+import java.security.SignatureException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -13,24 +14,31 @@ import org.springframework.stereotype.Component;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.Credentials;
 
-import papyrus.channel.node.contract.ChannelManager;
-import papyrus.channel.node.entity.ChannelBlockchainProperties;
+import papyrus.channel.node.contract.ChannelManagerContract;
+import papyrus.channel.node.entity.BlockchainChannelProperties;
+import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.ethereum.ContractsManager;
+import papyrus.channel.node.server.peer.PeerConnectionManager;
 
 @Component
-public class OutgoingChannelPoolManager {
-    private Map<Address, OutgoingChannelPool> channelPools = new ConcurrentHashMap<>();
+public class OutgoingChannelManager {
+    private final Map<Address, OutgoingChannelPool> channelPools = new ConcurrentHashMap<>();
+    private final Map<Address, OutgoingChannelState> allChannelsByAddress = new ConcurrentHashMap<>();
 
+    private final Address senderAddress;
     private final Credentials credentials;
     private final ContractsManager contractsManager;
     private final ScheduledExecutorService executorService;
-    private final ChannelManager channelManagerContract;
+    private final PeerConnectionManager peerConnectionManager;
+    private final ChannelManagerContract channelManagerContract;
 
-    public OutgoingChannelPoolManager(Credentials credentials, ContractsManager contractsManager, ScheduledExecutorService executorService) {
+    public OutgoingChannelManager(Credentials credentials, ContractsManager contractsManager, ScheduledExecutorService executorService, PeerConnectionManager peerConnectionManager) {
         this.credentials = credentials;
+        senderAddress = new Address(credentials.getAddress());
         this.contractsManager = contractsManager;
         this.executorService = executorService;
         channelManagerContract = contractsManager.channelManager();
+        this.peerConnectionManager = peerConnectionManager;
         syncChannels();
         executorService.scheduleWithFixedDelay(this::cleanup, 1, 1, TimeUnit.SECONDS);
         executorService.scheduleWithFixedDelay(this::syncChannels, 60, 60, TimeUnit.SECONDS);
@@ -47,7 +55,7 @@ public class OutgoingChannelPoolManager {
         }
     }
 
-    public List<OutgoingChannelState> getChannelsState(Address participantAddress) {
+    public List<OutgoingChannelState> getChannels(Address participantAddress) {
         OutgoingChannelPool pool = channelPools.get(participantAddress);
         if (pool == null) {
             return Collections.emptyList();
@@ -58,7 +66,7 @@ public class OutgoingChannelPoolManager {
     public void addParticipant(Address participantAddress, OutgoingChannelProperties config) {
         channelPools.compute(participantAddress, (addr, channelPool)->{
             if (channelPool == null) {
-                channelPool = new OutgoingChannelPool(participantAddress, config, contractsManager, executorService);
+                channelPool = new OutgoingChannelPool(this, config, contractsManager, peerConnectionManager, executorService, credentials, participantAddress);
                 channelPool.start();
                 return channelPool;
             }
@@ -70,7 +78,7 @@ public class OutgoingChannelPoolManager {
     public void removeParticipant(Address participantAddress) {
         OutgoingChannelPool manager = channelPools.get(participantAddress);
         if (manager != null) {
-            manager.setConfig(new OutgoingChannelProperties(0, new ChannelBlockchainProperties(0)));
+            manager.setConfig(new OutgoingChannelProperties(0, new BlockchainChannelProperties(0)));
         }
     }
     
@@ -83,6 +91,21 @@ public class OutgoingChannelPoolManager {
                 mgr.destroy();
                 return null;
             });
+        }
+    }
+
+    public void registerTransfer(SignedTransfer signedTransfer) throws SignatureException {
+        signedTransfer.verifySignature(senderAddress::equals);
+        OutgoingChannelState channelState = allChannelsByAddress.get(signedTransfer.getChannelAddress());
+        if (channelState == null) {
+            throw new IllegalStateException("Unknown channel address: " + signedTransfer.getChannelAddress());
+        }
+        channelState.registerTransfer(signedTransfer);
+    }
+
+    void putChannel(OutgoingChannelState channel) {
+        if (allChannelsByAddress.putIfAbsent(channel.getChannelAddress(), channel) != null) {
+            throw new IllegalStateException("Duplicate channel: " + channel.getChannelAddress());
         }
     }
 }

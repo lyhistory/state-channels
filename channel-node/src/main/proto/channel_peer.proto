@@ -9,7 +9,7 @@ option java_outer_classname = "PapyrusChannel";
 
 service ChannelPeer {
     rpc Opened (ChannelOpenedRequest) returns (ChannelOpenedResponse);
-    rpc Update (ChannelUpdate) returns (ChannelUpdateResponse);
+    rpc Update (ChannelUpdateRequest) returns (ChannelUpdateResponse);
 }
 
 message ChannelOpenedRequest {
@@ -20,22 +20,21 @@ message ChannelOpenedResponse {
     Error error = 2;
 }
 
-message ChannelState {
-    string channel_id = 1;
-    int32 nonce = 2;
+message ChannelStateMessage {
+    string channel_address = 1;
+    int64 nonce = 2;
     bool final = 3;
-    string total_transfer = 4;
+    string completed_transfers = 4;
     bytes completed_root = 5;
     bytes locked_root = 6;
     bytes signature = 7;
 }
 
-message ChannelUpdate {
-    ChannelState state = 1;
+message ChannelUpdateRequest {
+    ChannelStateMessage state = 1;
 }
 
 message ChannelUpdateResponse {
-    StatusCode status = 1;
-    string error = 2;
+    Error error = 1;
 }
 

@@ -1,6 +1,8 @@
-package papyrus.channel.node.server.outgoing;
+package papyrus.channel.node.server.channel.outgoing;
 
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -11,41 +13,41 @@ import org.web3j.abi.datatypes.Address;
 import com.google.common.base.Preconditions;
 
 import papyrus.channel.node.contract.ChannelContract;
-import papyrus.channel.node.entity.ChannelBlockchainProperties;
+import papyrus.channel.node.entity.BlockchainChannelProperties;
+import papyrus.channel.node.server.channel.BlockchainChannel;
+import papyrus.channel.node.server.channel.SignedChannelState;
+import papyrus.channel.node.server.channel.SignedTransfer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class OutgoingChannel {
-    private static final Logger log = LoggerFactory.getLogger(OutgoingChannel.class);
+public class OutgoingChannelState {
+    private static final Logger log = LoggerFactory.getLogger(OutgoingChannelState.class);
     
-    private final ChannelBlockchainProperties properties;
-    private final Address receiverAddress;
     private Status status;
-    private Address channelAddress;
-    private BigInteger transferedAmount;
-    private long created;
-    private long closed;
-    private long settled;
+    private BlockchainChannel channel;
+    private BigInteger transferedAmount = BigInteger.ZERO;
     CompletableFuture<ChannelContract> deployingContract;
-    ChannelContract contract;
+    private Map<BigInteger, SignedTransfer> transfers = new HashMap<>();
+    private long currentNonce;
+    private long syncedNonce;
 
-    public OutgoingChannel(Address receiverAddress, ChannelBlockchainProperties properties) {
-        this.receiverAddress = receiverAddress;
-        this.properties = properties;
+    public OutgoingChannelState(Address senderAddress, Address receiverAddress, BlockchainChannelProperties properties) {
+        channel = new BlockchainChannel(senderAddress, receiverAddress);
+        channel.setProperties(properties);
         setStatus(Status.NEW);
     }
 
     public boolean isClosed() {
-        return created > 0;
+        return channel.getCreated() > 0;
     }
 
     public boolean isSettled() {
-        return settled > 0;
+        return channel.getSettled() > 0;
     }
 
     public Address getChannelAddress() {
-        return channelAddress;
+        return channel.getChannelAddress();
     }
 
     public void onDeploying(CompletableFuture<ChannelContract> deployingContract) {
@@ -60,9 +62,7 @@ public class OutgoingChannel {
         checkStatus(Status.CREATING);
 
         this.deployingContract = null;
-        this.channelAddress = new Address(contract.getContractAddress());
-        this.created = contract.getTransactionReceipt().get().getBlockNumber().longValueExact();
-        this.contract = contract;
+        channel.linkNewContract(contract);
         
         setStatus(Status.CREATED);
     }
@@ -84,13 +84,12 @@ public class OutgoingChannel {
         return status;
     }
 
-    public OutgoingChannelState toState() {
-        Preconditions.checkState(channelAddress != null, "Invalid status: %s", status);
-        return new OutgoingChannelState(channelAddress);
+    public BigInteger getTransferedAmount() {
+        return transferedAmount;
     }
 
     String getAddressSafe() {
-        if (channelAddress != null) return channelAddress.toString();
+        if (channel.getChannelAddress() != null) return channel.getChannelAddress().toString();
         return status.toString();
     }
 
@@ -98,6 +97,35 @@ public class OutgoingChannel {
         checkStatus(Status.CREATING);
         Preconditions.checkNotNull(deployingContract);
         return Optional.ofNullable(deployingContract.getNow(null));
+    }
+
+    public synchronized boolean registerTransfer(SignedTransfer transfer) {
+        Preconditions.checkArgument(transfer.getChannelAddress().equals(getChannelAddress()));
+        Preconditions.checkArgument(transfer.getValue().signum() > 0);
+        
+        if (transfers.putIfAbsent(transfer.getTransferId(), transfer) == null) {
+            transferedAmount = transferedAmount.add(transfer.getValue());
+            if (currentNonce == syncedNonce) {
+                currentNonce ++;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public synchronized boolean isNeedsSync() {
+        return currentNonce > syncedNonce;
+    }
+
+    public synchronized SignedChannelState createState() {
+        SignedChannelState state = new SignedChannelState(channel.getChannelAddress());
+        state.setNonce(currentNonce);
+        state.setCompletedTransfers(transferedAmount);
+        return state;
+    }
+
+    public synchronized void syncCompleted(SignedChannelState state) {
+        syncedNonce = currentNonce;
     }
 
     public enum Status {

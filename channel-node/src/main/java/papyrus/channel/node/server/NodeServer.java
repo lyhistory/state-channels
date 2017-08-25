@@ -32,6 +32,7 @@
 package papyrus.channel.node.server;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,46 +41,59 @@ import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.context.event.ContextStoppedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import org.web3j.abi.datatypes.Address;
+import org.web3j.crypto.Credentials;
 
+import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import papyrus.channel.node.config.ChannelServerProperties;
 import papyrus.channel.node.server.admin.ChannelAdminImpl;
+import papyrus.channel.node.server.channel.ChannelPeerImpl;
+import papyrus.channel.node.server.channel.incoming.IncomingChannelClientImpl;
+import papyrus.channel.node.server.channel.outgoing.OutgoingChannelClientImpl;
+import papyrus.channel.node.server.peer.EndpointRegistry;
 
 @Service
 @EnableConfigurationProperties(ChannelServerProperties.class)
 public class NodeServer {
     private static final Logger log = LoggerFactory.getLogger(NodeServer.class);
+    private final List<BindableService> bindableServices;
 
     private Server grpcServer;
-    
-    private ChannelClientImpl channelClient;
-    private ChannelPeerImpl channelPeer;
-    private ChannelAdminImpl channelAdmin;
 
     private ChannelServerProperties properties;
+    private final Credentials credentials;
+    private final EndpointRegistry endpointRegistry;
 
-    public NodeServer(ChannelClientImpl channelClient, ChannelPeerImpl channelPeer, ChannelAdminImpl channelAdmin, ChannelServerProperties properties) {
-        this.channelClient = channelClient;
-        this.channelPeer = channelPeer;
-        this.channelAdmin = channelAdmin;
+    public NodeServer(List<BindableService> bindableServices, ChannelServerProperties properties, Credentials credentials, EndpointRegistry endpointRegistry) {
+        this.bindableServices = bindableServices;
         this.properties = properties;
+        this.credentials = credentials;
+        this.endpointRegistry = endpointRegistry;
     }
 
     @EventListener(ContextStartedEvent.class)
     public void start() {
         int port = properties.getPort();
-        grpcServer = ServerBuilder.forPort(port)
-            .addService(channelClient)
-            .addService(channelPeer)
-            .addService(channelAdmin)
-            .build();
+        ServerBuilder<?> builder = ServerBuilder.forPort(port);
+        bindableServices.forEach(builder::addService);
+        grpcServer = builder.build();
 
         try {
             grpcServer.start();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        String endpointUrl = properties.getEndpointUrl();
+        if (endpointUrl == null) {
+            log.warn("No endpoint url provided");
+        } else {
+            String address = credentials.getAddress();
+            endpointRegistry.registerEndpoint(new Address(address), endpointUrl);
+        }
+        
         log.info("Server started, listening on " + grpcServer.getPort());
     }
 

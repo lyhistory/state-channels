@@ -1,6 +1,6 @@
 eth:
   key:
-    auto-refill: 10
+    auto-refill: 1
   rpc:
     node-url: http://localhost:8545
     gas-price: 1

@@ -2,11 +2,11 @@ pragma solidity ^0.4.0;
 
 import 'zeppelin-solidity/contracts/token/StandardToken.sol';
 import 'zeppelin-solidity/contracts/ECRecovery.sol';
-import './ChannelManager.sol';
+import './ChannelManagerContract.sol';
 
 //Papyrus State Channel Library
 //moved to separate library to save gas
-library ChannelLibrary {
+library ChannelLibraryContract {
     struct StateUpdate {
         uint256 completed_transfers;
     }
@@ -17,7 +17,7 @@ library ChannelLibrary {
         uint closed;
         uint settled;
         address closing_address;
-        ChannelManager manager;
+        ChannelManagerContract manager;
     
         address sender;
         address receiver;

@@ -9,15 +9,15 @@ eth:
 channel:
   server:
     port: 8080
-    endpoint-url: http://localhost:8080
+    endpoint-url: grpc://localhost:8080
   contracts:
 #     make 'truffle migrate' and copy contract's addresses here
     predeployed:
-      ECRecovery: 0x0876620f985b525b27a77440d9b879cc94df0600
-      ChannelLibrary: 0x55b8e31492aa2a411fd3006dbb485ed086114ff5
-      EndpointRegistry: 0x83647e5e8d9178dbb59b73fdc71604df7c29ad94
-      PapyrusToken: 0x54fa4f9a0aa35013927fcba9b364d2b3ac7bdeff
-      ChannelManager: 0xe76a3e4aeaaf72ca8c6d24da45af548c796fbf39
+      ECRecovery: 0x0287f03c35c996dc07c5f1e10c46894f37fcbe02
+      ChannelLibraryContract: 0xaaa7fefb95bd85a5d28fb17645e086ef800e519e
+      EndpointRegistryContract: 0xee1dae888e7fb8ca411289f2afef283d2361a147
+      PapyrusToken: 0xa0520b53dab2c5d70fdbea27e3df1a5cfdcd3270
+      ChannelManagerContract: 0xc9fe1fa5416d41fb5ce075437205eb2e80cecaaa
 logging:
   level:
    default: INFO

@@ -1,9 +1,9 @@
 package papyrus.channel.node.entity;
 
-public class ChannelBlockchainProperties extends DataObject {
+public class BlockchainChannelProperties extends DataObject {
     private long settleTimeout;
 
-    public ChannelBlockchainProperties(long settleTimeout) {
+    public BlockchainChannelProperties(long settleTimeout) {
         this.settleTimeout = settleTimeout;
     }
 

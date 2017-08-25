@@ -9,7 +9,7 @@ import "../contracts/ChannelLibrary.sol";
 contract TestChannelLibrary {
 
     function testInitialBalanceUsingDeployedContract() {
-        ChannelLibrary meta = ChannelLibrary(DeployedAddresses.ChannelLibrary());
+        ChannelLibraryContract meta = ChannelLibraryContract(DeployedAddresses.ChannelLibrary());
 
         uint expected = 10000;
 

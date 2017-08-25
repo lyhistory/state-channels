@@ -10,19 +10,19 @@ import io.grpc.stub.StreamObserver;
 import papyrus.channel.node.AddParticipantRequest;
 import papyrus.channel.node.AddParticipantResponse;
 import papyrus.channel.node.ChannelAdminGrpc;
-import papyrus.channel.node.entity.ChannelBlockchainProperties;
-import papyrus.channel.node.server.outgoing.OutgoingChannelPoolManager;
-import papyrus.channel.node.server.outgoing.OutgoingChannelProperties;
+import papyrus.channel.node.entity.BlockchainChannelProperties;
+import papyrus.channel.node.server.channel.outgoing.OutgoingChannelManager;
+import papyrus.channel.node.server.channel.outgoing.OutgoingChannelProperties;
 
 //TODO need to authenticate client
 @Component
 public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
     private static final Logger log = LoggerFactory.getLogger(ChannelAdminImpl.class);
     public static final int MAX_CHANNELS_PER_ADDRESS = 100;
-    private OutgoingChannelPoolManager outgoingChannelPoolManager;
+    private OutgoingChannelManager outgoingChannelManager;
 
-    public ChannelAdminImpl(OutgoingChannelPoolManager outgoingChannelPoolManager) {
-        this.outgoingChannelPoolManager = outgoingChannelPoolManager;
+    public ChannelAdminImpl(OutgoingChannelManager outgoingChannelManager) {
+        this.outgoingChannelManager = outgoingChannelManager;
     }
 
     @Override
@@ -32,9 +32,9 @@ public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
             responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal active channels: %d", request.getActiveChannels())).asException());
             return;
         }
-        outgoingChannelPoolManager.addParticipant(
+        outgoingChannelManager.addParticipant(
             new Address(request.getParticipantAddress()),
-            new OutgoingChannelProperties(request.getActiveChannels(), new ChannelBlockchainProperties(10))
+            new OutgoingChannelProperties(request.getActiveChannels(), new BlockchainChannelProperties(10))
         );
         responseObserver.onNext(AddParticipantResponse.newBuilder().build());
         responseObserver.onCompleted();

@@ -1,4 +1,4 @@
-package papyrus.channel.node.server;
+package papyrus.channel.node.server.channel;
 
 import java.math.BigInteger;
 

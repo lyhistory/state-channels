@@ -1,6 +1,8 @@
 package papyrus.channel.node;
 
 import java.io.IOException;
+import java.math.BigInteger;
+import java.util.Collection;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -8,10 +10,15 @@ import org.junit.Before;
 import org.junit.Test;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
 
 import papyrus.channel.Error;
+import papyrus.channel.node.server.channel.SignedTransfer;
+import papyrus.channel.node.server.channel.incoming.IncomingChannelManager;
+import papyrus.channel.node.server.channel.incoming.IncomingChannelState;
+import papyrus.channel.node.server.peer.PeerConnection;
 
 public class TestServer {
 
@@ -19,8 +26,8 @@ public class TestServer {
     
     private ConfigurableApplicationContext sender;
     private ConfigurableApplicationContext receiver;
-    private NodeClient senderClient;
-    private NodeClient receiverClient;
+    private PeerConnection senderClient;
+    private PeerConnection receiverClient;
 
     @Before
     public void init() throws IOException, CipherException {
@@ -28,9 +35,9 @@ public class TestServer {
         receiver = createServerContext("receiver");
         sender.start();
         receiver.start();
-        senderClient = sender.getBean(NodeClient.class);
+        senderClient = sender.getBean(PeerConnection.class);
         Assert.assertNotNull(senderClient);
-        receiverClient = sender.getBean(NodeClient.class);
+        receiverClient = receiver.getBean(PeerConnection.class);
         Assert.assertNotNull(receiverClient);
     }
 
@@ -61,19 +68,49 @@ public class TestServer {
         ChannelStatusResponse response;
         for (int i = 0; ; i ++) {
             Assert.assertTrue(i < 10);
-            response = senderClient.getChannelClient().outgoingChannelState(
+            response = senderClient.getOutgoingChannelClient().getChannels(
                 ChannelStatusRequest.newBuilder()
                     .setParticipantAddress(receiver.getBean(Credentials.class).getAddress())
                     .build()
             );
-            if (!response.getChannelsList().isEmpty()) {
+            if (!response.getChannelList().isEmpty()) {
                 break;
             }
             Thread.sleep(2000);
         }
+
+        String channelAddress = response.getChannel(0).getChannelAddress();
+
+        Credentials senderCredentials = sender.getBean(Credentials.class);
+        SignedTransfer transfer = new SignedTransfer("1", channelAddress, "1000");
+        transfer.sign(senderCredentials.getEcKeyPair());
+        
+        assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
+            .addTransfer(transfer.toMessage())
+            .build()
+        ).getError());
+
+        Thread.sleep(2000);
+
+        IncomingChannelManager incomingChannelManager = receiver.getBean(IncomingChannelManager.class);
+        Collection<IncomingChannelState> channels = incomingChannelManager.getChannels(new Address(senderCredentials.getAddress()));
+        Assert.assertEquals(1, channels.size());
+        IncomingChannelState channelState = channels.iterator().next();
+        Assert.assertEquals(BigInteger.valueOf(1000), channelState.getReceiverState().getCompletedTransfers());
+
+        assertNoError(receiverClient.getIncomingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
+            .addTransfer(transfer.toMessage())
+            .build()
+        ).getError());
+
+        Thread.sleep(2000);
+
+        Assert.assertEquals(BigInteger.valueOf(1000), channelState.getOwnState().getCompletedTransfers());
+        Assert.assertTrue(channelState.getReceiverState() != null);
+        Assert.assertEquals(BigInteger.valueOf(1000), channelState.getReceiverState().getCompletedTransfers());
     }
 
-    private void checkError(Error error) {
-        Assert.assertNull(error != null ? error.getMessage() : "", error);
+    private void assertNoError(Error error) {
+        Assert.assertEquals(error.getMessage(), 0, error.getStatusValue());
     }
 }

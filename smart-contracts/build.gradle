@@ -59,8 +59,8 @@ task solc {
 
 task wrappers(dependsOn:'solc') {
     def contracts=[
-            "EndpointRegistry",
-            "ChannelManager",
+            "EndpointRegistryContract",
+            "ChannelManagerContract",
             "ChannelContract",
             "PapyrusToken",
     ]

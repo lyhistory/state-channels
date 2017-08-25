@@ -1,10 +1,10 @@
 pragma solidity ^0.4.0;
 
-import "./ChannelLibrary.sol";
+import "./ChannelLibraryContract.sol";
 
 contract ChannelContract {
-    using ChannelLibrary for ChannelLibrary.Data;
-    ChannelLibrary.Data data;
+    using ChannelLibraryContract for ChannelLibraryContract.Data;
+    ChannelLibraryContract.Data data;
 
     event ChannelNewBalance(address token_address, address participant, uint balance, uint block_number);
     event ChannelClosed(address closing_address, uint block_number);
@@ -24,11 +24,13 @@ contract ChannelContract {
         uint timeout)
         settleTimeoutNotTooLow(timeout)
     {
+        //allow creation only from manager contract
+        require(msg.sender == manager_address);
         require (sender != receiver);
 
         data.sender = sender;
         data.receiver = receiver;
-        data.manager = ChannelManager(manager_address);
+        data.manager = ChannelManagerContract(manager_address);
         data.settle_timeout = timeout;
         data.opened = block.number;
     }

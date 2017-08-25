@@ -5,15 +5,23 @@ import "common.proto";
 option java_multiple_files = true;
 option java_package = "papyrus.channel.node";
 
-service ChannelClient {
+service OutgoingChannelClient {
     // Request outgoing channel state with given participant 
-    rpc OutgoingChannelState (ChannelStatusRequest) returns (ChannelStatusResponse);
+    rpc GetChannels (ChannelStatusRequest) returns (ChannelStatusResponse);
 
-    // Request channel state with given participant 
-    rpc IncomingChannelState (ChannelStatusRequest) returns (ChannelStatusResponse);
+    // Register transfer promise 
+    rpc RegisterTransfers (RegisterTransfersRequest) returns (RegisterTransfersResponse);
 }
 
-message ChannelStatus {
+service IncomingChannelClient {
+    // Request incoming channels' states with given participant 
+    rpc GetChannels (ChannelStatusRequest) returns (ChannelStatusResponse);
+
+    // Register incoming transfers promises 
+    rpc RegisterTransfers (RegisterTransfersRequest) returns (RegisterTransfersResponse);
+}
+
+message ChannelStatusMessage {
     string channel_address = 1;
     string participant_address = 2;
     ChannelProperties properties = 3;
@@ -26,10 +34,20 @@ message ChannelStatusRequest {
 }
 
 message ChannelStatusResponse {
-    repeated ChannelStatus channels = 1;
+    repeated ChannelStatusMessage channel = 1;
 }
 
-// The request message containing the user's name.
-message PPTransferPromise {
+message RegisterTransfersRequest {
+    repeated TransferMessage transfer = 1;
+}
 
+message TransferMessage {
+    string transfer_id = 1;
+    string channel_address = 2;
+    string value = 3;
+    string signature = 4;
+}
+
+message RegisterTransfersResponse {
+    Error error = 1;
 }
