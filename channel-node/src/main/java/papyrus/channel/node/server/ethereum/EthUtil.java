@@ -23,6 +23,8 @@ import org.web3j.utils.Numeric;
 import com.google.common.base.Preconditions;
 
 public class EthUtil {
+    public static final BigInteger MASK_256 = BigInteger.ONE.shiftLeft(256).subtract(BigInteger.ONE);
+    
     public static String getContractAddress(String fromAddress, long nonce) {
         byte[] bytes = RlpEncoder.encode(new RlpList(RlpString.create(Numeric.hexStringToByteArray(Numeric.cleanHexPrefix(fromAddress))), RlpString.create(nonce)));
         byte[] sha3 = Hash.sha3(bytes);
@@ -63,11 +65,16 @@ public class EthUtil {
             Preconditions.checkArgument(((byte[]) obj).length == 32);
             return (byte[]) obj;
         } else if (obj instanceof BigInteger) {
-            return Numeric.toBytesPadded((BigInteger) obj, 32);
+            BigInteger value = (BigInteger) obj;
+            if (value.signum() < 0) {
+                value = MASK_256.and(value);
+            }
+            return Numeric.toBytesPadded(value, 32);
         } else if (obj instanceof Uint) {
             return toBytes32(((Uint) obj).getValue());
         } else if (obj instanceof Number) {
-            return toBytes32(BigInteger.valueOf(((Number) obj).longValue()));
+            long l = ((Number) obj).longValue();
+            return toBytes32(BigInteger.valueOf(l));
         }
         throw new IllegalArgumentException(obj.getClass().getName());
     }
