@@ -23,7 +23,8 @@ contract ChannelManagerContract {
     mapping(address => address[]) outgoing_channels;
     mapping(address => address[]) incoming_channels;
 
-    function ChannelManager(address token_address) {
+    function ChannelManagerContract(address token_address) {
+        require(token_address != 0);
         token = StandardToken(token_address);
     }
 

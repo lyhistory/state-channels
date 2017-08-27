@@ -86,6 +86,8 @@ public class NodeServer {
             throw new RuntimeException(e);
         }
 
+        log.info("Server started, GRPC API listening on " + grpcServer.getPort());
+
         String endpointUrl = properties.getEndpointUrl();
         if (endpointUrl == null) {
             log.warn("No endpoint url provided");
@@ -93,8 +95,6 @@ public class NodeServer {
             String address = credentials.getAddress();
             endpointRegistry.registerEndpoint(new Address(address), endpointUrl);
         }
-        
-        log.info("Server started, listening on " + grpcServer.getPort());
     }
 
     @EventListener(ContextStoppedEvent.class)

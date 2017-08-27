@@ -7,6 +7,7 @@ import java.lang.reflect.Method;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.tx.Contract;
 import org.web3j.tx.TransactionManager;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 
 import papyrus.channel.node.config.ContractsProperties;
@@ -30,6 +32,7 @@ import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.ChannelManagerContract;
 import papyrus.channel.node.contract.EndpointRegistryContract;
 import papyrus.channel.node.contract.LinkingManager;
+import papyrus.channel.node.contract.PapyrusToken;
 
 @Service
 @EnableConfigurationProperties(ContractsProperties.class)
@@ -42,8 +45,9 @@ public class ContractsManager {
     private final EndpointRegistryContract registry;
     private final ChannelManagerContract channelManager;
     private final Web3j web3j;
+    private final PapyrusToken papyrusToken;
 
-    public ContractsManager(EthereumConfig config, ContractsProperties contractsProperties) throws IOException {
+    public ContractsManager(EthereumConfig config, ContractsProperties contractsProperties) throws IOException, ExecutionException, InterruptedException {
         this.config = config;
         web3j = config.getWeb3j();
         manager = new LinkingManager(config);
@@ -61,6 +65,9 @@ public class ContractsManager {
         
         registry = loadPredeployedContract(EndpointRegistryContract.class);
         channelManager = loadPredeployedContract(ChannelManagerContract.class);
+        papyrusToken = loadPredeployedContract(PapyrusToken.class);
+        Address channelManagerToken = channelManager.token().get();
+        Preconditions.checkState(new Address(papyrusToken.getContractAddress()).equals(channelManagerToken), "Wrong token contract %s != %s", papyrusToken.getContractAddress(), channelManagerToken);
     }
 
     @Bean
@@ -76,6 +83,10 @@ public class ContractsManager {
         return registry;
     }
 
+    public PapyrusToken token() {
+        return papyrusToken;
+    }
+    
     public <C extends Contract> C loadAbstractPredeployedContract(Class<C> contractClass, String name) {
         try {
             Address address = contractsProperties.getPredeployed().get(name);

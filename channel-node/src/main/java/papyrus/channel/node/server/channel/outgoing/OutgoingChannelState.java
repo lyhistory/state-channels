@@ -5,18 +5,23 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.web3j.abi.datatypes.Address;
+import org.web3j.abi.datatypes.generated.Uint256;
+import org.web3j.protocol.core.methods.response.TransactionReceipt;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 
 import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.entity.BlockchainChannelProperties;
 import papyrus.channel.node.server.channel.BlockchainChannel;
 import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.channel.SignedTransfer;
+import papyrus.channel.node.server.ethereum.TokenService;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -27,10 +32,12 @@ public class OutgoingChannelState {
     private Status status;
     private BlockchainChannel channel;
     private BigInteger transferedAmount = BigInteger.ZERO;
-    CompletableFuture<ChannelContract> deployingContract;
     private Map<BigInteger, SignedTransfer> transfers = new HashMap<>();
     private long currentNonce;
     private long syncedNonce;
+    CompletableFuture<ChannelContract> deployingContract;
+    private Future<TransactionReceipt> depositFuture;
+    private BigInteger depositPending;
 
     public OutgoingChannelState(Address senderAddress, Address signerAddress, Address receiverAddress, BlockchainChannelProperties properties) {
         channel = new BlockchainChannel(senderAddress, signerAddress, receiverAddress);
@@ -128,6 +135,50 @@ public class OutgoingChannelState {
         syncedNonce = currentNonce;
     }
 
+    public BigInteger getBalance() {
+        return channel.getBalance();
+    }
+
+    public void deposit(TokenService token, BigInteger value) {
+        checkStatus(Status.CREATED);
+        Preconditions.checkState(depositFuture == null);
+        if (value.signum() > 0) {
+            depositFuture = CompletableFuture.supplyAsync(() -> {
+                try {
+                    token.approve(channel.getChannelAddress(), value);
+                    //TODO rollback approval in case contract was not created
+                    return channel.getContract().deposit(new Uint256(value)).get();
+                } catch (Exception e) {
+                    throw Throwables.propagate(e);
+                }
+            });
+            depositPending = value;
+        } else {
+            status = Status.ACTIVE;
+        }
+    }
+    
+    public boolean isDepositDeploying() {
+        return depositFuture != null;
+    }
+
+    public void checkDepositCompleted() {
+        checkStatus(Status.CREATED);
+        if (depositFuture.isDone()) {
+            try {
+                depositFuture.get();
+            } catch (Exception e) {
+                depositFuture = null;
+                depositPending = null;
+                throw Throwables.propagate(e);
+            }
+            channel.setBalance(channel.getBalance().add(depositPending));
+            depositFuture = null;
+            depositPending = null;                            
+            status = Status.ACTIVE;
+        }
+    }
+
     public enum Status {
         /** Fresh new object */
         NEW,
@@ -135,7 +186,7 @@ public class OutgoingChannelState {
         CREATING,
         /** Created in blockchain */
         CREATED,
-        /** Active (counterparty confirmed readiness) */
+        /** Active (deposit added) */
         ACTIVE, 
         /** Accept transactions from client, but not return as active */
         SUSPENDING, 

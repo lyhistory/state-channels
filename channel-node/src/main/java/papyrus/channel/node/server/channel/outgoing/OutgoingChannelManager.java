@@ -14,9 +14,9 @@ import org.springframework.stereotype.Component;
 import org.web3j.abi.datatypes.Address;
 
 import papyrus.channel.node.config.EthereumConfig;
-import papyrus.channel.node.entity.BlockchainChannelProperties;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.ethereum.ContractsManager;
+import papyrus.channel.node.server.ethereum.TokenService;
 import papyrus.channel.node.server.peer.PeerConnectionManager;
 
 @Component
@@ -25,12 +25,20 @@ public class OutgoingChannelManager {
     private final Map<Address, OutgoingChannelState> allChannelsByAddress = new ConcurrentHashMap<>();
 
     private final Address signerAddress;
+    private final TokenService tokenService;
     private final ContractsManager contractsManager;
     private final ScheduledExecutorService executorService;
     private final PeerConnectionManager peerConnectionManager;
     private final EthereumConfig ethereumConfig;
 
-    public OutgoingChannelManager(EthereumConfig ethereumConfig, ContractsManager contractsManager, ScheduledExecutorService executorService, PeerConnectionManager peerConnectionManager) {
+    public OutgoingChannelManager(
+        TokenService tokenService, 
+        EthereumConfig ethereumConfig, 
+        ContractsManager contractsManager, 
+        ScheduledExecutorService executorService, 
+        PeerConnectionManager peerConnectionManager
+    ) {
+        this.tokenService = tokenService;
         this.ethereumConfig = ethereumConfig;
         signerAddress = ethereumConfig.getSignerAddress();;
         this.contractsManager = contractsManager;
@@ -65,7 +73,8 @@ public class OutgoingChannelManager {
             if (channelPool == null) {
                 channelPool = new OutgoingChannelPool(
                     this, 
-                    config, 
+                    config,
+                    tokenService,
                     contractsManager, 
                     peerConnectionManager, 
                     executorService, 
@@ -75,7 +84,7 @@ public class OutgoingChannelManager {
                 channelPool.start();
                 return channelPool;
             }
-            channelPool.setConfig(config);
+            channelPool.setChannelProperties(config);
             return channelPool;
         });
     }
@@ -83,7 +92,7 @@ public class OutgoingChannelManager {
     public void removeParticipant(Address participantAddress) {
         OutgoingChannelPool manager = channelPools.get(participantAddress);
         if (manager != null) {
-            manager.setConfig(new OutgoingChannelProperties(0, new BlockchainChannelProperties(0)));
+            manager.shutdown();
         }
     }
     

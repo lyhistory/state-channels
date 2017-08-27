@@ -18,15 +18,15 @@ public class BlockchainChannel {
     private final Address senderAddress;
     private final Address signerAddress;
     private final Address receiverAddress;
-    private BigInteger balance;
+    private BigInteger balance = BigInteger.ZERO;
     private BlockchainChannelProperties properties;
     private Address channelAddress;
     private Address closingAddress;
     private long created;
     private long closed;
     private long settled;
-    private BigInteger senderUpdateTransfers;
-    private BigInteger receiverUpdateTransfers;
+    private BigInteger senderUpdateTransfers = BigInteger.ZERO;
+    private BigInteger receiverUpdateTransfers = BigInteger.ZERO;
 
     ChannelContract contract;
 
@@ -45,7 +45,9 @@ public class BlockchainChannel {
 //            uint settle_timeout,
         long timeout = ((Uint) st.get(0)).getValue().longValueExact();
         Preconditions.checkState(timeout > 0);
-        properties = new BlockchainChannelProperties(timeout);
+        BlockchainChannelProperties properties = new BlockchainChannelProperties();
+        properties.setSettleTimeout(timeout);
+        this.properties = properties;
 //            uint opened,
         created = ((Uint) st.get(1)).getValue().longValueExact();
         Preconditions.checkState(created > 0);

@@ -10,7 +10,6 @@ import io.grpc.stub.StreamObserver;
 import papyrus.channel.node.AddParticipantRequest;
 import papyrus.channel.node.AddParticipantResponse;
 import papyrus.channel.node.ChannelAdminGrpc;
-import papyrus.channel.node.entity.BlockchainChannelProperties;
 import papyrus.channel.node.server.channel.outgoing.OutgoingChannelManager;
 import papyrus.channel.node.server.channel.outgoing.OutgoingChannelProperties;
 
@@ -32,10 +31,22 @@ public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
             responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal active channels: %d", request.getActiveChannels())).asException());
             return;
         }
-        outgoingChannelManager.addParticipant(
-            new Address(request.getParticipantAddress()),
-            new OutgoingChannelProperties(request.getActiveChannels(), new BlockchainChannelProperties(10))
+        
+        OutgoingChannelProperties properties = new OutgoingChannelProperties(request);
+        
+        if (properties.getBlockchainProperties().getSettleTimeout() < 6) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal settle timeout: %d", properties.getBlockchainProperties().getSettleTimeout())).asException());
+            return;
+        }
+        
+        if (properties.getDeposit().signum() <= 0) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal deposit: %d", properties.getDeposit())).asException());
+            return;
+        }
+        
+        outgoingChannelManager.addParticipant(new Address(request.getParticipantAddress()), properties
         );
+        
         responseObserver.onNext(AddParticipantResponse.newBuilder().build());
         responseObserver.onCompleted();
     }

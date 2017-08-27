@@ -1,5 +1,6 @@
 package papyrus.channel.node.server.channel.outgoing;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -26,6 +27,7 @@ import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.contract.ChannelManagerContract;
 import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.ethereum.ContractsManager;
+import papyrus.channel.node.server.ethereum.TokenService;
 import papyrus.channel.node.server.peer.PeerConnection;
 import papyrus.channel.node.server.peer.PeerConnectionManager;
 import papyrus.channel.protocol.ChannelUpdateRequest;
@@ -43,6 +45,7 @@ public class OutgoingChannelPool {
     private final ScheduledExecutorService executorService;
     private final ContractsManager contractsManager;
     private final OutgoingChannelManager poolManager;
+    private final TokenService tokenService;
     private final PeerConnectionManager peerConnectionManager;
     private final Address senderAddress;
     private final Address signerAddress;
@@ -50,12 +53,14 @@ public class OutgoingChannelPool {
     private ScheduledFuture<?> watchFuture;
     private final Credentials credentials;
     private Address receiverAddress;
-    private volatile OutgoingChannelProperties config;
+    private volatile OutgoingChannelProperties channelProperties;
     private final List<OutgoingChannelState> channels = Collections.synchronizedList(new ArrayList<>());
+    private boolean shutdown;
 
     public OutgoingChannelPool(
         OutgoingChannelManager poolManager, 
-        OutgoingChannelProperties config, 
+        OutgoingChannelProperties channelProperties, 
+        TokenService tokenService,
         ContractsManager contractsManager,
         PeerConnectionManager peerConnectionManager,
         ScheduledExecutorService executorService, 
@@ -63,31 +68,36 @@ public class OutgoingChannelPool {
         Address receiverAddress
     ) {
         this.poolManager = poolManager;
+        this.tokenService = tokenService;
         this.peerConnectionManager = peerConnectionManager;
         this.credentials = ethereumConfig.getCredentials();
         this.senderAddress = ethereumConfig.getEthAddress();
         this.signerAddress = ethereumConfig.getSignerAddress();
         this.receiverAddress = receiverAddress;
-        this.config = config;
+        this.channelProperties = channelProperties;
         this.contractsManager = contractsManager;
         this.executorService = executorService;
     }
 
-    public void setConfig(OutgoingChannelProperties config) {
-        this.config = config;
+    public void setChannelProperties(OutgoingChannelProperties channelProperties) {
+        this.channelProperties = channelProperties;
     }
 
     public boolean isFinished() {
-        return config.getActiveChannels() == 0 && channels.isEmpty();
+        return shutdown && channels.isEmpty();
     }
 
     private void cycle() {
         try {
             long activeOrOpening = channels.stream().filter(c -> c.getStatus().isAnyOf(ACTIVE, CREATED, CREATING)).count();
-            if (activeOrOpening < config.getActiveChannels()) {
-                OutgoingChannelState channel = new OutgoingChannelState(senderAddress, signerAddress, receiverAddress, config.getBlockchainProperties());
+            if (!shutdown && activeOrOpening < channelProperties.getActiveChannels()) {
+                OutgoingChannelState channel = new OutgoingChannelState(senderAddress, signerAddress, receiverAddress, channelProperties.getBlockchainProperties());
                 channels.add(channel);
             }
+//            if (shutdown || activeOrOpening > channelProperties.getActiveChannels()) {
+// TODO               
+//            }
+            
             for (OutgoingChannelState channel : channels) {
                 OutgoingChannelState.Status status = channel.getStatus();
                 try {
@@ -115,7 +125,7 @@ public class OutgoingChannelPool {
                 break;
             case CREATED:
                 //TODO ask counterparty
-                channel.setActive();
+                checkDeposit(channel);
                 break;
             case ACTIVE:
                 if (channel.isNeedsSync()) {
@@ -130,6 +140,17 @@ public class OutgoingChannelPool {
                 break;
             case DISPUTING:
                 break;
+        }
+    }
+
+    private void checkDeposit(OutgoingChannelState channel) {
+        if (channel.isDepositDeploying()) {
+            channel.checkDepositCompleted();
+        } else {
+            BigInteger balance = channel.getBalance();
+            BigInteger deposit = channelProperties.getDeposit();
+            BigInteger required = deposit.subtract(balance);
+            channel.deposit(tokenService, required);
         }
     }
 
@@ -151,7 +172,7 @@ public class OutgoingChannelPool {
         Future<TransactionReceipt> future = contractsManager.channelManager().newChannel(
             signerAddress, 
             receiverAddress, 
-            new Uint256(config.getBlockchainProperties().getSettleTimeout())
+            new Uint256(channelProperties.getBlockchainProperties().getSettleTimeout())
         );
         //todo store transaction hash instead of future
         channel.onDeploying(CompletableFuture.supplyAsync(() -> {
@@ -194,5 +215,9 @@ public class OutgoingChannelPool {
         synchronized (channels) {
             return channels.stream().filter(c -> c.getStatus() == ACTIVE).collect(Collectors.toList());
         }
+    }
+
+    public void shutdown() {
+        this.shutdown = true;
     }
 }

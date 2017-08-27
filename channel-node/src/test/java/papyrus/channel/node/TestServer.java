@@ -14,6 +14,7 @@ import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
 
+import papyrus.channel.ChannelProperties;
 import papyrus.channel.Error;
 import papyrus.channel.node.config.EthKeyProperties;
 import papyrus.channel.node.server.channel.SignedTransfer;
@@ -66,7 +67,12 @@ public class TestServer {
         senderClient.getClientAdmin().addParticipant(
             AddParticipantRequest.newBuilder()
                 .setParticipantAddress(receiver.getBean(Credentials.class).getAddress())
+                .setDeposit("100000")
                 .setActiveChannels(1)
+                .setProperties(ChannelProperties.newBuilder()
+                    .setCloseTimeout(10)
+                    .setSettleTimeout(10)
+                    .build())
                 .build()
         );
 

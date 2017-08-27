@@ -13,9 +13,10 @@ service ChannelAdmin {
 
 message AddParticipantRequest {
     string participant_address = 1;
-    ChannelProperties properties = 2;
+    ChannelPropertiesMessage properties = 2;
     //number of simultaneously active open channels
-    int32 active_channels = 3;
+    string deposit = 3;
+    int32 active_channels = 4;
 }
 
 message AddParticipantResponse {
