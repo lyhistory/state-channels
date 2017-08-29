@@ -1,6 +1,9 @@
 package papyrus.channel.node.config;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,33 +17,61 @@ import org.web3j.crypto.Credentials;
 import org.web3j.crypto.WalletUtils;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.http.HttpService;
+import org.web3j.tx.TransactionManager;
 
-@EnableConfigurationProperties({EthRpcProperties.class, EthKeyProperties.class})
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+
+import papyrus.channel.node.server.ethereum.ContractsManager;
+
+@EnableConfigurationProperties({EthProperties.class, ContractsProperties.class})
 @Configuration
 public class EthereumConfig {
     private static final Logger log = LoggerFactory.getLogger(EthereumConfig.class);
-    private final Address signerAddress;
 
-    private EthKeyProperties keyProperties;
-    private EthRpcProperties rpcProperties;
-    private final Credentials credentials;
+    private EthProperties properties;
+    private final Map<Address, EthKeyProperties> keyProperties;
+    private final Map<Address, Credentials> credentialsMap;
+    private final Map<Address, ContractsManager> managerMap;
+    private final Credentials mainCredentials;
     private final Web3j web3j;
 
     @Autowired
-    public EthereumConfig(EthKeyProperties keyProperties, EthRpcProperties rpcProperties) throws IOException, CipherException {
-        this.keyProperties = keyProperties;
-        this.rpcProperties = rpcProperties;
-        this.credentials = loadCredentials(keyProperties);
-        web3j = Web3j.build(new HttpService(rpcProperties.getNodeUrl()));
-        Address signerAddress = keyProperties.getSignerAddress();
-        this.signerAddress = signerAddress != null ? signerAddress : new Address(credentials.getAddress());
+    public EthereumConfig(EthProperties properties, ContractsProperties contractsProperties) throws IOException, CipherException {
+        this.properties = properties;
+        keyProperties = new HashMap<>();
+        credentialsMap = new HashMap<>();
+        managerMap = new HashMap<>();
+
+        web3j = Web3j.build(new HttpService(this.properties.getRpc().getNodeUrl()));
         
-        log.info("Configured ETH payment account:{}, signer address:{} and rpc server: {}", credentials.getAddress(), signerAddress, rpcProperties.getNodeUrl());
+        Credentials mainCred = null;
+        for (EthKeyProperties key : properties.getKeys()) {
+            Credentials credentials = loadCredentials(key);
+            if (mainCred == null) mainCred = credentials;
+            Address address = new Address(credentials.getAddress());
+            keyProperties.put(address, key);
+            credentialsMap.put(address, credentials);
+            managerMap.put(address, new ContractsManager(properties.getRpc(), web3j, credentials, contractsProperties));
+        }
+        
+        assert keyProperties.size() == properties.getKeys().size();
+        assert credentialsMap.size() == properties.getKeys().size();
+        assert managerMap.size() == properties.getKeys().size();
+        
+        Preconditions.checkState(mainCred != null, "No eth.keys defined");
+        mainCredentials = mainCred;
+        
+        log.info("Configured ETH payment accounts:{} and rpc server: {}", credentialsMap.keySet(), this.properties.getRpc().getNodeUrl());
     }
 
-    private static Credentials loadCredentials(EthKeyProperties keyProperties) throws IOException, CipherException {
+    private static Credentials loadCredentials(EthKeyProperties keyProperties) {
         if (keyProperties.getKeyLocation() != null) {
-            return WalletUtils.loadCredentials(keyProperties.getKeyPassword(), keyProperties.getKeyLocation());
+            try {
+                return WalletUtils.loadCredentials(keyProperties.getKeyPassword(), keyProperties.getKeyLocation());
+            } catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
         } else if (keyProperties.getPrivateKey() != null) {
             return Credentials.create(keyProperties.getPrivateKey());
         } else {
@@ -48,20 +79,50 @@ public class EthereumConfig {
         }
     }
 
-    public EthKeyProperties getKeyProperties() {
-        return keyProperties;
+    public EthKeyProperties getKeyProperties(Address address) {
+        checkAddress(address);
+        return keyProperties.get(address);
+    }
+
+    public Set<Address> getAddresses() {
+        return keyProperties.keySet();
+    }
+
+    private void checkAddress(Address address) {
+        if (!credentialsMap.containsKey(address)) {
+            throw new IllegalArgumentException("Account " + address + " is not managed");
+        }
+    }
+
+    public Credentials getMainCredentials() {
+        return mainCredentials;
+    }
+
+    public Address getMainAddress() {
+        return new Address(getMainCredentials().getAddress());
+    }
+
+    public TransactionManager getTransactionManager(Address address) {
+        return getContractManager(address).getTransactionManager();
+    }
+
+    public ContractsManager getContractManager(Address address) {
+        checkAddress(address);
+        return managerMap.get(address);
+    }
+
+    public ContractsManager getMainContractManager() {
+        return getContractManager(getMainAddress());
     }
 
     public EthRpcProperties getRpcProperties() {
-        return rpcProperties;
+        return properties.getRpc();
     }
 
-    public Address getEthAddress() {
-        return new Address(credentials.getAddress());
-    }
-
-    public Address getSignerAddress() {
-        return signerAddress;
+    public Address getSignerAddress(Address address) {
+        checkAddress(address);
+        EthKeyProperties ethKeyProperties = keyProperties.get(address);
+        return ethKeyProperties == null ? null : ethKeyProperties.getSignerAddress() == null ? address : ethKeyProperties.getSignerAddress();
     }
 
     @Bean
@@ -69,8 +130,7 @@ public class EthereumConfig {
         return web3j;
     }
 
-    @Bean
-    public Credentials getCredentials() {
-        return credentials;
+    public Credentials getCredentials(Address address) {
+        return credentialsMap.get(address);
     }
 }

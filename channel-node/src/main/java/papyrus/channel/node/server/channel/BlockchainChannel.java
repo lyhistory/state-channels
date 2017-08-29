@@ -12,14 +12,14 @@ import com.google.common.base.Preconditions;
 
 import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.contract.ChannelManagerContract;
-import papyrus.channel.node.entity.BlockchainChannelProperties;
+import papyrus.channel.node.entity.ChannelProperties;
 
 public class BlockchainChannel {
     private final Address senderAddress;
     private final Address signerAddress;
     private final Address receiverAddress;
     private BigInteger balance = BigInteger.ZERO;
-    private BlockchainChannelProperties properties;
+    private ChannelProperties properties;
     private Address channelAddress;
     private Address closingAddress;
     private long created;
@@ -41,11 +41,12 @@ public class BlockchainChannel {
     }
 
     private BlockchainChannel(Address managerAddress, ChannelContract contract, List<Type> st) {
+        this.channelAddress = new Address(contract.getContractAddress());
         int i = 0;
 //            uint settle_timeout,
         long timeout = ((Uint) st.get(i++)).getValue().longValueExact();
         Preconditions.checkState(timeout > 0);
-        BlockchainChannelProperties properties = new BlockchainChannelProperties();
+        ChannelProperties properties = new ChannelProperties();
         properties.setSettleTimeout(timeout);
         this.properties = properties;
 //            uint opened,
@@ -107,11 +108,11 @@ public class BlockchainChannel {
         this.channelAddress = channelAddress;
     }
 
-    public BlockchainChannelProperties getProperties() {
+    public ChannelProperties getProperties() {
         return properties;
     }
 
-    public void setProperties(BlockchainChannelProperties properties) {
+    public void setProperties(ChannelProperties properties) {
         this.properties = properties;
     }
 

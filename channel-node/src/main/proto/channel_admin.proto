@@ -9,25 +9,26 @@ option java_package = "papyrus.channel.node";
 service ChannelAdmin {
     
     // Creates or updates outgoing channel with given participant
-    rpc AddParticipant(AddParticipantRequest) returns (AddParticipantResponse);
+    rpc AddChannelPool(AddChannelPoolRequest) returns (AddChannelPoolResponse);
 
     // Remove participant and asynchronously closes outgoing channels
-    rpc RemoveParticipant(RemoveParticipantRequest) returns (RemoveParticipantResponse);
+    rpc RemoveChannelPool(RemoveChannelPoolRequest) returns (RemoveChannelPoolResponse);
 
     // Forces channel to close as soon as possible
     rpc RequestCloseChannel(CloseChannelRequest) returns (CloseChannelResponse);
 }
 
-message AddParticipantRequest {
-    string participant_address = 1;
-    ChannelPropertiesMessage properties = 2;
+message AddChannelPoolRequest {
+    string sender_address = 1;
+    string receiver_address = 2;
+    ChannelPropertiesMessage properties = 3;
     //number of simultaneously active open channels
-    string deposit = 3;
-    int32 min_active_channels = 4;
-    int32 max_active_channels = 5;
+    string deposit = 4;
+    int32 min_active_channels = 5;
+    int32 max_active_channels = 6;
 }
 
-message AddParticipantResponse {
+message AddChannelPoolResponse {
     Error error = 1;
 }
 
@@ -39,10 +40,11 @@ message CloseChannelResponse {
     Error error = 1;
 }
 
-message RemoveParticipantRequest {
-    string participant_address = 1;
+message RemoveChannelPoolRequest {
+    string sender_address = 1;
+    string receiver_address = 2;
 }
 
-message RemoveParticipantResponse {
+message RemoveChannelPoolResponse {
     Error error = 1;
 }

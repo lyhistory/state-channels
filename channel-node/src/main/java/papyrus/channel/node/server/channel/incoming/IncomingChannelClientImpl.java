@@ -1,7 +1,5 @@
 package papyrus.channel.node.server.channel.incoming;
 
-import java.security.SignatureException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -20,16 +18,16 @@ import papyrus.channel.node.server.channel.SignedTransfer;
 @Component
 public class IncomingChannelClientImpl extends IncomingChannelClientGrpc.IncomingChannelClientImplBase {
     private static final Logger log = LoggerFactory.getLogger(IncomingChannelClientImpl.class);
-    private IncomingChannelManager manager;
+    private IncomingChannelManagers manager;
 
-    public IncomingChannelClientImpl(IncomingChannelManager manager) {
+    public IncomingChannelClientImpl(IncomingChannelManagers manager) {
         this.manager = manager;
     }
 
     @Override
     public void getChannels(ChannelStatusRequest request, StreamObserver<ChannelStatusResponse> responseObserver) {
         ChannelStatusResponse.Builder builder = ChannelStatusResponse.newBuilder();
-        for (IncomingChannelState state : manager.getChannels(new Address(request.getParticipantAddress()))) {
+        for (IncomingChannelState state : manager.getManager(new Address(request.getReceiverAddress())).getChannels(new Address(request.getSenderAddress()))) {
             builder.addChannel(ChannelStatusMessage.newBuilder()
                 .setActive(true)
                 .setChannelAddress(state.getChannelAddress().toString())
@@ -44,9 +42,8 @@ public class IncomingChannelClientImpl extends IncomingChannelClientGrpc.Incomin
     public void registerTransfers(RegisterTransfersRequest request, StreamObserver<RegisterTransfersResponse> responseObserver) {
         for (TransferMessage transferMessage : request.getTransferList()) {
             try {
-                SignedTransfer signedTransfer = new SignedTransfer(transferMessage);
-                manager.registerTransfer(signedTransfer);
-            } catch (IllegalArgumentException | SignatureException e) {
+                manager.registerTransfer(new SignedTransfer(transferMessage));
+            } catch (Exception e) {
                 log.warn("Invalid transfer", e);
             }
         }

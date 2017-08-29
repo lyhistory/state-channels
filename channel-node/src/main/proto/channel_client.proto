@@ -25,14 +25,15 @@ service IncomingChannelClient {
 
 message ChannelStatusMessage {
     string channel_address = 1;
-    string participant_address = 2;
+    string receiver_address = 2;
     ChannelPropertiesMessage properties = 3;
     bool active = 4;
 }
 
 message ChannelStatusRequest {
-    string participant_address = 1;
-    bool active_only = 2;
+    string sender_address = 1;
+    string receiver_address = 2;
+    bool active_only = 3;
 }
 
 message ChannelStatusResponse {

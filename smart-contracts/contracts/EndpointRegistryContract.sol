@@ -11,10 +11,6 @@ contract EndpointRegistryContract {
 
     // Mapping of Ethereum Addresses => SocketEndpoints
     mapping (address => string) address_to_socket;
-    // Mapping of SocketEndpoints => Ethereum Addresses
-    mapping (string => address) socket_to_address;
-    // list of all the Registered Addresses , still not used.
-    address[] eth_addresses;
 
     modifier noEmptyString(string str)
     {
@@ -37,9 +33,7 @@ contract EndpointRegistryContract {
         }
 
         // Put the ethereum address 0 in front of the old_socket,old_socket:0x0
-        socket_to_address[old_socket] = address(0);
         address_to_socket[msg.sender] = socket;
-        socket_to_address[socket] = msg.sender;
         AddressRegistered(msg.sender, socket);
     }
 
@@ -52,17 +46,6 @@ contract EndpointRegistryContract {
     function findEndpointByAddress(address eth_address) constant returns (string socket)
     {
         return address_to_socket[eth_address];
-    }
-
-    /*
-     * @notice Finds Ethreum Address if given an existing socket address
-     * @dev Finds Ethreum Address if given an existing socket address
-     * @param string of socket in this format "127.0.0.1:40001"
-     * @return An ethereum address
-     */
-    function findAddressByEndpoint(string socket) constant returns (address eth_address)
-    {
-        return socket_to_address[socket];
     }
 
     function equals(string a, string b) internal constant returns (bool result)

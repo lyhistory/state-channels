@@ -48,10 +48,12 @@ import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import papyrus.channel.node.config.ChannelServerProperties;
+import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.server.admin.ChannelAdminImpl;
 import papyrus.channel.node.server.channel.ChannelPeerImpl;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelClientImpl;
 import papyrus.channel.node.server.channel.outgoing.OutgoingChannelClientImpl;
+import papyrus.channel.node.server.ethereum.ContractsManager;
 import papyrus.channel.node.server.peer.EndpointRegistry;
 
 @Service
@@ -63,14 +65,12 @@ public class NodeServer {
     private Server grpcServer;
 
     private ChannelServerProperties properties;
-    private final Credentials credentials;
-    private final EndpointRegistry endpointRegistry;
+    private final EthereumConfig ethereumConfig;
 
-    public NodeServer(List<BindableService> bindableServices, ChannelServerProperties properties, Credentials credentials, EndpointRegistry endpointRegistry) {
+    public NodeServer(List<BindableService> bindableServices, ChannelServerProperties properties, EthereumConfig ethereumConfig) {
         this.bindableServices = bindableServices;
         this.properties = properties;
-        this.credentials = credentials;
-        this.endpointRegistry = endpointRegistry;
+        this.ethereumConfig = ethereumConfig;
     }
 
     @EventListener(ContextStartedEvent.class)
@@ -92,8 +92,11 @@ public class NodeServer {
         if (endpointUrl == null) {
             log.warn("No endpoint url provided");
         } else {
-            String address = credentials.getAddress();
-            endpointRegistry.registerEndpoint(new Address(address), endpointUrl);
+            for (Address address : ethereumConfig.getAddresses()) {
+                ContractsManager contractManager = ethereumConfig.getContractManager(address);
+                EndpointRegistry registry = new EndpointRegistry(contractManager.endpointRegistry());
+                registry.registerEndpoint(address, endpointUrl);
+            }
         }
     }
 

@@ -2,21 +2,21 @@ package papyrus.channel.node.server.channel.outgoing;
 
 import java.math.BigInteger;
 
-import papyrus.channel.node.AddParticipantRequest;
-import papyrus.channel.node.entity.BlockchainChannelProperties;
+import papyrus.channel.node.AddChannelPoolRequest;
+import papyrus.channel.node.entity.ChannelProperties;
 
-public class OutgoingChannelProperties {
+public class ChannelPoolProperties {
     
     private final int minActiveChannels;
     private final int maxActiveChannels;
     private final BigInteger deposit;
-    private final BlockchainChannelProperties blockchainProperties;
+    private final ChannelProperties blockchainProperties;
 
-    public OutgoingChannelProperties(AddParticipantRequest request) {
-        this(request.getMinActiveChannels(), request.getMaxActiveChannels(), new BigInteger(request.getDeposit()), new BlockchainChannelProperties(request.getProperties()));
+    public ChannelPoolProperties(AddChannelPoolRequest request) {
+        this(request.getMinActiveChannels(), request.getMaxActiveChannels(), new BigInteger(request.getDeposit()), new ChannelProperties(request.getProperties()));
     }
     
-    public OutgoingChannelProperties(int minActiveChannels, int maxActiveChannels, BigInteger deposit, BlockchainChannelProperties blockchainProperties) {
+    public ChannelPoolProperties(int minActiveChannels, int maxActiveChannels, BigInteger deposit, ChannelProperties blockchainProperties) {
         this.minActiveChannels = minActiveChannels;
         this.maxActiveChannels = maxActiveChannels;
         this.deposit = deposit;
@@ -35,7 +35,7 @@ public class OutgoingChannelProperties {
         return deposit;
     }
 
-    public BlockchainChannelProperties getBlockchainProperties() {
+    public ChannelProperties getBlockchainProperties() {
         return blockchainProperties;
     }
 }

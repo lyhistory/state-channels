@@ -46,21 +46,33 @@ public class IncomingChannelState {
         this.receiverState = receiverState;
     }
     
-    public synchronized boolean registerTransfer(SignedTransfer transfer) throws SignatureException {
-        transfer.verifySignature(channel.getsignerAddress()::equals);
-        boolean registered = transfers.putIfAbsent(transfer.getTransferId(), transfer) == null;
-        if (registered) {
-            ownState.setCompletedTransfers(ownState.getCompletedTransfers().add(transfer.getValue()));
+    public synchronized boolean registerTransfer(SignedTransfer transfer) {
+        try {
+            transfer.verifySignature(channel.getsignerAddress()::equals);
+            boolean registered = transfers.putIfAbsent(transfer.getTransferId(), transfer) == null;
+            if (registered) {
+                ownState.setCompletedTransfers(ownState.getCompletedTransfers().add(transfer.getValue()));
+            }
+            return registered;
+        } catch (SignatureException e) {
+            throw new RuntimeException(e);
         }
-        return registered;
     } 
 
     public Address getChannelAddress() {
         return channel.getChannelAddress();
     }
 
-    public void requestClose() {
+    public boolean requestClose() {
         //TODO
         throw new UnsupportedOperationException();
+    }
+
+    public Address getSenderAddress() {
+        return channel.getSenderAddress();
+    }
+
+    public Address getReceiverAddress() {
+        return channel.getReceiverAddress();
     }
 }

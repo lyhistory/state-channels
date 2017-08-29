@@ -16,21 +16,23 @@ import papyrus.channel.node.RegisterTransfersRequest;
 import papyrus.channel.node.RegisterTransfersResponse;
 import papyrus.channel.node.TransferMessage;
 import papyrus.channel.node.server.channel.SignedTransfer;
+import papyrus.channel.node.server.channel.incoming.OutgoingChannelRegistry;
 
 @Component
 public class OutgoingChannelClientImpl extends OutgoingChannelClientGrpc.OutgoingChannelClientImplBase {
     private static final Logger log = LoggerFactory.getLogger(OutgoingChannelClientImpl.class);
     
-    private OutgoingChannelManager manager;
+    private OutgoingChannelPoolManager manager;
+    private OutgoingChannelRegistry registry;
 
-    public OutgoingChannelClientImpl(OutgoingChannelManager manager) {
+    public OutgoingChannelClientImpl(OutgoingChannelPoolManager manager) {
         this.manager = manager;
     }
 
     @Override
     public void getChannels(ChannelStatusRequest request, StreamObserver<ChannelStatusResponse> responseObserver) {
         ChannelStatusResponse.Builder builder = ChannelStatusResponse.newBuilder();
-        for (OutgoingChannelState state : manager.getChannels(new Address(request.getParticipantAddress()))) {
+        for (OutgoingChannelState state : manager.getChannels(new Address(request.getSenderAddress()), new Address(request.getReceiverAddress()))) {
             builder.addChannel(ChannelStatusMessage.newBuilder()
                 .setActive(true)
                 .setChannelAddress(state.getChannelAddress().toString())
@@ -54,4 +56,5 @@ public class OutgoingChannelClientImpl extends OutgoingChannelClientGrpc.Outgoin
         responseObserver.onNext(RegisterTransfersResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
+
 }

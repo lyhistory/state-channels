@@ -27,7 +27,7 @@ public class Test {
 //        byte chainId = Byte.valueOf(web3j.netVersion().send().getNetVersion());
 
 //        String contractAddress;
-//        LinkingManager linkingManager = new LinkingManager(web3j, testCredentials);
+//        LinkingTransactionManager linkingManager = new LinkingTransactionManager(web3j, testCredentials);
 //        ECRecovery ecRecovery = ECRecovery.deploy(web3j, linkingManager, TestUtil.GAS_PRICE, TestUtil.GAS_LIMIT, BigInteger.ZERO).get();
 //        Assert.assertTrue(ecRecovery.isValid());
 //        linkingManager.provide("ECRecovery", ecRecovery);

@@ -9,24 +9,25 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.web3j.abi.datatypes.Address;
+import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
 import org.web3j.tx.FastRawTransactionManager;
 import org.web3j.tx.TransactionManager;
 
-import papyrus.channel.node.config.EthereumConfig;
+import papyrus.channel.node.config.EthRpcProperties;
 
-public class LinkingManager extends TransactionManager {
-    private static final Logger log = LoggerFactory.getLogger(LinkingManager.class);
+public class LinkingTransactionManager extends TransactionManager {
+    private static final Logger log = LoggerFactory.getLogger(LinkingTransactionManager.class);
 
     private final Map<String, Address> predeployed = new HashMap<>();
     private final TransactionManager manager;
     private final Web3j web3j;
 
-    public LinkingManager(EthereumConfig config) {
-        super(config.getWeb3j(), config.getRpcProperties().getAttempts(), (int) config.getRpcProperties().getSleep().toMillis());
-        this.web3j = config.getWeb3j();
-        this.manager = new FastRawTransactionManager(web3j, config.getCredentials());
+    public LinkingTransactionManager(Web3j web3j, EthRpcProperties rpcProperties, Credentials credentials) {
+        super(web3j, rpcProperties.getAttempts(), (int) rpcProperties.getSleep().toMillis());
+        this.web3j = web3j;
+        this.manager = new FastRawTransactionManager(web3j, credentials);
     }
 
     public void provide(String name, Address contractAddress) {

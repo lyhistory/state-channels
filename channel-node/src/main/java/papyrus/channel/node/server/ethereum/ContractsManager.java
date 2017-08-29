@@ -7,13 +7,9 @@ import java.lang.reflect.Method;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.stereotype.Service;
 import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Type;
@@ -22,57 +18,54 @@ import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.Response;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.tx.Contract;
+import org.web3j.tx.RawTransactionManager;
 import org.web3j.tx.TransactionManager;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 
 import papyrus.channel.node.config.ContractsProperties;
-import papyrus.channel.node.config.EthereumConfig;
+import papyrus.channel.node.config.EthRpcProperties;
 import papyrus.channel.node.contract.ChannelManagerContract;
 import papyrus.channel.node.contract.EndpointRegistryContract;
-import papyrus.channel.node.contract.LinkingManager;
 import papyrus.channel.node.contract.PapyrusToken;
 
-@Service
-@EnableConfigurationProperties(ContractsProperties.class)
 public class ContractsManager {
     private static final Logger log = LoggerFactory.getLogger(ContractsManager.class);
 
-    private final EthereumConfig config;
-    private final LinkingManager manager;
+    private final TransactionManager transactionManager;
     private final ContractsProperties contractsProperties;
     private final EndpointRegistryContract registry;
     private final ChannelManagerContract channelManager;
+    private final EthRpcProperties rpcProperties;
     private final Web3j web3j;
     private final PapyrusToken papyrusToken;
+    private final TokenService tokenService;
+    private final Address address;
 
-    public ContractsManager(EthereumConfig config, ContractsProperties contractsProperties) throws IOException, ExecutionException, InterruptedException {
-        this.config = config;
-        web3j = config.getWeb3j();
-        manager = new LinkingManager(config);
+    public ContractsManager(EthRpcProperties rpcProperties, Web3j web3j, Credentials credentials, ContractsProperties contractsProperties) {
+        this.web3j = web3j;
+        this.rpcProperties = rpcProperties;
+        this.transactionManager = new RawTransactionManager(web3j, credentials, rpcProperties.getAttempts(), (int) rpcProperties.getSleep().toMillis());
         this.contractsProperties = contractsProperties;
 
         log.info("Configuring pre deployed contracts {}", contractsProperties.getPredeployed());
-        contractsProperties.getPredeployed().forEach((name, contractAddress) -> {
-            try {
-                checkContractExists(name, contractAddress.toString());
-            } catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-            manager.provide(name, contractAddress);
-        });
         
         registry = loadPredeployedContract(EndpointRegistryContract.class);
         channelManager = loadPredeployedContract(ChannelManagerContract.class);
         papyrusToken = loadPredeployedContract(PapyrusToken.class);
-        Address channelManagerToken = channelManager.token().get();
-        Preconditions.checkState(new Address(papyrusToken.getContractAddress()).equals(channelManagerToken), "Wrong token contract %s != %s", papyrusToken.getContractAddress(), channelManagerToken);
+        address = new Address(credentials.getAddress());
+        tokenService = new TokenService(papyrusToken, address);
+        try {
+            Address channelManagerToken = channelManager.token().get();
+            Preconditions.checkState(new Address(papyrusToken.getContractAddress()).equals(channelManagerToken), "Wrong token contract %s != %s", papyrusToken.getContractAddress(), channelManagerToken);
+        } catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
-    @Bean
-    public LinkingManager linkingManager() {
-        return manager;
+    public TransactionManager getTransactionManager() {
+        return transactionManager;
     }
 
     public ChannelManagerContract channelManager() {
@@ -86,7 +79,15 @@ public class ContractsManager {
     public PapyrusToken token() {
         return papyrusToken;
     }
-    
+
+    public TokenService getTokenService() {
+        return tokenService;
+    }
+
+    public Address getAddress() {
+        return address;
+    }
+
     public <C extends Contract> C loadAbstractPredeployedContract(Class<C> contractClass, String name) {
         try {
             Address address = contractsProperties.getPredeployed().get(name);
@@ -104,7 +105,7 @@ public class ContractsManager {
         try {
             //String contractAddress, Web3j web3j, TransactionManager transactionManager, BigInteger gasPrice, BigInteger gasLimit
             Method method = contractClass.getDeclaredMethod("load", String.class, Web3j.class, TransactionManager.class, BigInteger.class, BigInteger.class);
-            Object contract = method.invoke(null, address.toString(), web3j, manager, config.getRpcProperties().getGasPrice(), config.getRpcProperties().getGasLimit());
+            Object contract = method.invoke(null, address.toString(), web3j, transactionManager, rpcProperties.getGasPrice(), rpcProperties.getGasLimit());
             return contractClass.cast(contract);
         } catch (Exception e) {
             throw Throwables.propagate(e);
@@ -132,7 +133,7 @@ public class ContractsManager {
     }
 
     private String checkContractExists(String name, String contractAddress) throws IOException {
-        String code = papyrus.channel.node.server.ethereum.EthUtil.getContractCode(web3j, contractAddress);
+        String code = EthUtil.getContractCode(web3j, contractAddress);
         if (code.equals("0")) {
             throw new IllegalStateException("Contract " + name + " is not deployed at address: " + contractAddress);
         }
@@ -150,7 +151,7 @@ public class ContractsManager {
         }
         String encodedConstructor = FunctionEncoder.encodeConstructor(Arrays.asList(args));
         try {
-            String transactionHash = manager.sendTransaction(config.getRpcProperties().getGasPrice(), config.getRpcProperties().getGasLimit(), null, binary + encodedConstructor, BigInteger.ZERO).getTransactionHash();
+            String transactionHash = transactionManager.sendTransaction(rpcProperties.getGasPrice(), rpcProperties.getGasLimit(), null, binary + encodedConstructor, BigInteger.ZERO).getTransactionHash();
             if (transactionHash == null) {
                 throw new IllegalStateException("Failed to send transaction");
             }
@@ -173,11 +174,11 @@ public class ContractsManager {
         try {
             Constructor<T> constructor = type.getDeclaredConstructor(
                 String.class,
-                Web3j.class, Credentials.class,
+                Web3j.class, TransactionManager.class,
                 BigInteger.class, BigInteger.class);
             constructor.setAccessible(true);
 
-            T contract = constructor.newInstance(null, web3j, config.getCredentials(), config.getRpcProperties().getGasPrice(), config.getRpcProperties().getGasLimit());
+            T contract = constructor.newInstance(null, web3j, transactionManager, rpcProperties.getGasPrice(), rpcProperties.getGasLimit());
             contract.setContractAddress(rc.getContractAddress());
             contract.setTransactionReceipt(rc);
             return contract;

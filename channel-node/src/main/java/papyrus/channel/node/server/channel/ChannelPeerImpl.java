@@ -9,7 +9,7 @@ import org.web3j.abi.datatypes.Address;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import papyrus.channel.node.server.channel.incoming.IncomingChannelManager;
+import papyrus.channel.node.server.channel.incoming.IncomingChannelManagers;
 import papyrus.channel.protocol.ChannelOpenedRequest;
 import papyrus.channel.protocol.ChannelOpenedResponse;
 import papyrus.channel.protocol.ChannelPeerGrpc;
@@ -19,15 +19,15 @@ import papyrus.channel.protocol.ChannelUpdateResponse;
 @Component
 public class ChannelPeerImpl extends ChannelPeerGrpc.ChannelPeerImplBase {
     private static final Logger log = LoggerFactory.getLogger(ChannelPeerImpl.class);
-    private IncomingChannelManager incomingChannelManager;
+    private IncomingChannelManagers incomingChannelManagers;
 
-    public ChannelPeerImpl(IncomingChannelManager incomingChannelManager) {
-        this.incomingChannelManager = incomingChannelManager;
+    public ChannelPeerImpl(IncomingChannelManagers incomingChannelManagers) {
+        this.incomingChannelManagers = incomingChannelManagers;
     }
 
     @Override
     public void opened(ChannelOpenedRequest request, StreamObserver<ChannelOpenedResponse> responseObserver) {
-        incomingChannelManager.register(new Address(request.getChannelId()));
+        incomingChannelManagers.load(new Address(request.getChannelId()));
         responseObserver.onNext(ChannelOpenedResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -35,7 +35,7 @@ public class ChannelPeerImpl extends ChannelPeerGrpc.ChannelPeerImplBase {
     @Override
     public void update(ChannelUpdateRequest request, StreamObserver<ChannelUpdateResponse> responseObserver) {
         try {
-            incomingChannelManager.updateSenderState(new SignedChannelState(request.getState()));
+            incomingChannelManagers.updateSenderState(new SignedChannelState(request.getState()));
             responseObserver.onNext(ChannelUpdateResponse.newBuilder().build());
             responseObserver.onCompleted();
         } catch (SignatureException e) {

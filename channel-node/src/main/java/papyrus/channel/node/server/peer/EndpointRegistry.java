@@ -4,28 +4,31 @@ import java.util.concurrent.ExecutionException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Utf8String;
 
 import com.google.common.base.Throwables;
 
-import papyrus.channel.node.config.ChannelServerProperties;
+import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.EndpointRegistryContract;
-import papyrus.channel.node.server.ethereum.ContractsManager;
 
 @Service
-@EnableConfigurationProperties(ChannelServerProperties.class)
 public class EndpointRegistry {
     private static final Logger log = LoggerFactory.getLogger(EndpointRegistry.class);
     
     private EndpointRegistryContract registry;
 
-    public EndpointRegistry(ContractsManager contractsManager) {
-        this.registry = contractsManager.endpointRegistry();
+    @Autowired
+    public EndpointRegistry(EthereumConfig config) {
+        this.registry = config.getContractManager(config.getMainAddress()).endpointRegistry();
     }
 
+    public EndpointRegistry(EndpointRegistryContract registry) {
+        this.registry = registry;
+    }
+    
     public void registerEndpoint(Address address, String endpointUrl) {
         try {
             Utf8String currentEndpoint = registry.findEndpointByAddress(address).get();

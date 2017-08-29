@@ -2,10 +2,8 @@ package papyrus.channel.node.config;
 
 import java.math.BigDecimal;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.web3j.abi.datatypes.Address;
 
-@ConfigurationProperties("eth.key")
 public class EthKeyProperties {
     
     private String keyLocation;

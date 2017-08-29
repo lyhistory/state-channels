@@ -3,9 +3,6 @@ package papyrus.channel.node.config;
 import java.math.BigInteger;
 import java.time.Duration;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
-@ConfigurationProperties("eth.rpc")
 public class EthRpcProperties {
     
     private String nodeUrl;

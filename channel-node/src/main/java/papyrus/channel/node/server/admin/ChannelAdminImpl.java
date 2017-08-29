@@ -7,34 +7,34 @@ import org.web3j.abi.datatypes.Address;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import papyrus.channel.node.AddParticipantRequest;
-import papyrus.channel.node.AddParticipantResponse;
+import papyrus.channel.node.AddChannelPoolRequest;
+import papyrus.channel.node.AddChannelPoolResponse;
 import papyrus.channel.node.ChannelAdminGrpc;
 import papyrus.channel.node.CloseChannelRequest;
 import papyrus.channel.node.CloseChannelResponse;
-import papyrus.channel.node.RemoveParticipantRequest;
-import papyrus.channel.node.RemoveParticipantResponse;
-import papyrus.channel.node.server.channel.incoming.IncomingChannelManager;
-import papyrus.channel.node.server.channel.outgoing.OutgoingChannelManager;
-import papyrus.channel.node.server.channel.outgoing.OutgoingChannelProperties;
+import papyrus.channel.node.RemoveChannelPoolRequest;
+import papyrus.channel.node.RemoveChannelPoolResponse;
+import papyrus.channel.node.server.channel.incoming.IncomingChannelManagers;
+import papyrus.channel.node.server.channel.outgoing.ChannelPoolProperties;
+import papyrus.channel.node.server.channel.outgoing.OutgoingChannelPoolManager;
 
-//TODO need to authenticate client
+//TODO client authentication
 @Component
 public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
     private static final Logger log = LoggerFactory.getLogger(ChannelAdminImpl.class);
     public static final int MAX_CHANNELS_PER_ADDRESS = 100;
     
-    private OutgoingChannelManager outgoingChannelManager;
-    private IncomingChannelManager incomingChannelManager;
+    private OutgoingChannelPoolManager outgoingChannelPoolManager;
+    private IncomingChannelManagers incomingChannelManagers;
 
-    public ChannelAdminImpl(OutgoingChannelManager outgoingChannelManager, IncomingChannelManager incomingChannelManager) {
-        this.outgoingChannelManager = outgoingChannelManager;
-        this.incomingChannelManager = incomingChannelManager;
+    public ChannelAdminImpl(OutgoingChannelPoolManager outgoingChannelPoolManager, IncomingChannelManagers incomingChannelManagers) {
+        this.outgoingChannelPoolManager = outgoingChannelPoolManager;
+        this.incomingChannelManagers = incomingChannelManagers;
     }
 
     @Override
-    public void addParticipant(AddParticipantRequest request, StreamObserver<AddParticipantResponse> responseObserver) {
-        log.info("Add participant {} with channels: {}-{}", request.getParticipantAddress(), request.getMinActiveChannels(), request.getMaxActiveChannels());
+    public void addChannelPool(AddChannelPoolRequest request, StreamObserver<AddChannelPoolResponse> responseObserver) {
+        log.info("Adding pool {}->{} with channels: {}-{}", request.getSenderAddress(), request.getReceiverAddress(), request.getMinActiveChannels(), request.getMaxActiveChannels());
         if (request.getMinActiveChannels() < 0 || request.getMinActiveChannels() > MAX_CHANNELS_PER_ADDRESS) {
             responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal min active channels: %d", request.getMinActiveChannels())).asException());
             return;
@@ -44,7 +44,7 @@ public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
             return;
         }
         
-        OutgoingChannelProperties properties = new OutgoingChannelProperties(request);
+        ChannelPoolProperties properties = new ChannelPoolProperties(request);
         
         if (properties.getBlockchainProperties().getSettleTimeout() < 6) {
             responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal settle timeout: %d", properties.getBlockchainProperties().getSettleTimeout())).asException());
@@ -56,24 +56,23 @@ public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
             return;
         }
         
-        outgoingChannelManager.addParticipant(new Address(request.getParticipantAddress()), properties
-        );
+        outgoingChannelPoolManager.addPool(new Address(request.getSenderAddress()), new Address(request.getReceiverAddress()), properties);
         
-        responseObserver.onNext(AddParticipantResponse.newBuilder().build());
+        responseObserver.onNext(AddChannelPoolResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void removeParticipant(RemoveParticipantRequest request, StreamObserver<RemoveParticipantResponse> responseObserver) {
-        outgoingChannelManager.removeParticipant(new Address(request.getParticipantAddress()));
-        responseObserver.onNext(RemoveParticipantResponse.newBuilder().build());
+    public void removeChannelPool(RemoveChannelPoolRequest request, StreamObserver<RemoveChannelPoolResponse> responseObserver) {
+        outgoingChannelPoolManager.removePool(new Address(request.getSenderAddress()), new Address(request.getReceiverAddress()));
+        responseObserver.onNext(RemoveChannelPoolResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void requestCloseChannel(CloseChannelRequest request, StreamObserver<CloseChannelResponse> responseObserver) {
-        incomingChannelManager.requestCloseChannel(new Address(request.getChannelAddress()));
-        outgoingChannelManager.requestCloseChannel(new Address(request.getChannelAddress()));
+        incomingChannelManagers.requestCloseChannel(new Address(request.getChannelAddress()));
+        outgoingChannelPoolManager.requestCloseChannel(new Address(request.getChannelAddress()));
         responseObserver.onNext(CloseChannelResponse.newBuilder().build());
         responseObserver.onCompleted();
     }

@@ -17,7 +17,7 @@ import org.web3j.abi.datatypes.generated.Uint256;
 import com.google.common.base.Preconditions;
 
 import papyrus.channel.node.contract.ChannelContract;
-import papyrus.channel.node.entity.BlockchainChannelProperties;
+import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.server.channel.BlockchainChannel;
 import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.channel.SignedTransfer;
@@ -39,7 +39,7 @@ public class OutgoingChannelState {
 
     private StateTransition transition;
 
-    public OutgoingChannelState(Address senderAddress, Address signerAddress, Address receiverAddress, BlockchainChannelProperties properties) {
+    public OutgoingChannelState(Address senderAddress, Address signerAddress, Address receiverAddress, ChannelProperties properties) {
         channel = new BlockchainChannel(senderAddress, signerAddress, receiverAddress);
         channel.setProperties(properties);
         setStatus(Status.NEW);
@@ -55,6 +55,10 @@ public class OutgoingChannelState {
 
     public boolean isSettled() {
         return channel.getSettled() > 0;
+    }
+
+    BlockchainChannel getChannel() {
+        return channel;
     }
 
     public Address getChannelAddress() {

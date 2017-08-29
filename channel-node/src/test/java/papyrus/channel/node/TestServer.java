@@ -23,12 +23,12 @@ import com.google.common.base.Throwables;
 
 import papyrus.channel.ChannelPropertiesMessage;
 import papyrus.channel.Error;
-import papyrus.channel.node.config.EthKeyProperties;
+import papyrus.channel.node.config.EthProperties;
+import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.PapyrusToken;
 import papyrus.channel.node.server.channel.SignedTransfer;
-import papyrus.channel.node.server.channel.incoming.IncomingChannelManager;
+import papyrus.channel.node.server.channel.incoming.IncomingChannelManagers;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelState;
-import papyrus.channel.node.server.ethereum.ContractsManager;
 import papyrus.channel.node.server.peer.PeerConnection;
 
 public class TestServer {
@@ -42,6 +42,8 @@ public class TestServer {
     private PeerConnection receiverClient;
     private Credentials signerCredentials;
     private PapyrusToken token;
+    private Credentials senderCredentials;
+    private Credentials receiverCredentials;
 
     @Before
     public void init() throws IOException, CipherException {
@@ -50,11 +52,13 @@ public class TestServer {
         sender.start();
         receiver.start();
         senderClient = sender.getBean(PeerConnection.class);
-        signerCredentials = Credentials.create(sender.getBean(EthKeyProperties.class).getSignerPrivateKey());
+        signerCredentials = Credentials.create(sender.getBean(EthProperties.class).getKeys().get(0).getSignerPrivateKey());
+        senderCredentials = sender.getBean(EthereumConfig.class).getMainCredentials();
+        receiverCredentials = receiver.getBean(EthereumConfig.class).getMainCredentials();
         Assert.assertNotNull(senderClient);
         receiverClient = receiver.getBean(PeerConnection.class);
         Assert.assertNotNull(receiverClient);
-        token = sender.getBean(ContractsManager.class).token();
+        token = sender.getBean(EthereumConfig.class).getMainContractManager().token();
     }
 
     private ConfigurableApplicationContext createServerContext(String profile) {
@@ -74,16 +78,17 @@ public class TestServer {
     @Test
     public void testSendEther() throws InterruptedException, ExecutionException {
         //add participant - this will initiate channels opening
-        Address senderAddress = new Address(sender.getBean(Credentials.class).getAddress());
-        Address receiverAddress = new Address(receiver.getBean(Credentials.class).getAddress());
+        Address senderAddress = new Address(senderCredentials.getAddress());
+        Address receiverAddress = new Address(receiverCredentials.getAddress());
 
         BigInteger senderStartBalance = token.balanceOf(senderAddress).get().getValue();
         BigInteger receiverStartBalance = token.balanceOf(receiverAddress).get().getValue();
 
         BigInteger deposit = Convert.toWei("1", Convert.Unit.ETHER).toBigIntegerExact();
-        senderClient.getClientAdmin().addParticipant(
-            AddParticipantRequest.newBuilder()
-                .setParticipantAddress(receiver.getBean(Credentials.class).getAddress())
+        senderClient.getClientAdmin().addChannelPool(
+            AddChannelPoolRequest.newBuilder()
+                .setSenderAddress(senderAddress.toString())
+                .setReceiverAddress(receiverAddress.toString())
                 .setDeposit(deposit.toString())
                 .setMinActiveChannels(1)
                 .setMaxActiveChannels(1)
@@ -97,7 +102,8 @@ public class TestServer {
         ChannelStatusResponse response = waitFor(() -> 
             senderClient.getOutgoingChannelClient().getChannels(
                 ChannelStatusRequest.newBuilder()
-                    .setParticipantAddress(receiver.getBean(Credentials.class).getAddress())
+                    .setSenderAddress(senderAddress.toString())
+                    .setReceiverAddress(receiverAddress.toString())
                     .build()
             ), 
             r -> !r.getChannelList().isEmpty()
@@ -108,8 +114,8 @@ public class TestServer {
         IncomingChannelState channelState = waitFor(
             () -> {
                 try {
-                    IncomingChannelManager incomingChannelManager = receiver.getBean(IncomingChannelManager.class);
-                    return incomingChannelManager.getChannels(senderAddress);
+                    IncomingChannelManagers managers = receiver.getBean(IncomingChannelManagers.class);
+                    return managers.getManager(receiverAddress).getChannels(senderAddress);
                 } catch (BeansException e) {
                     throw Throwables.propagate(e);
                 }
@@ -148,9 +154,10 @@ public class TestServer {
         
         
         assertNoError(
-            senderClient.getClientAdmin().removeParticipant(
-                RemoveParticipantRequest.newBuilder()
-                    .setParticipantAddress(receiverAddress.toString())
+            senderClient.getClientAdmin().removeChannelPool(
+                RemoveChannelPoolRequest.newBuilder()
+                    .setSenderAddress(senderAddress.toString())
+                    .setReceiverAddress(receiverAddress.toString())
                     .build()
             ).getError()
         );
@@ -162,6 +169,7 @@ public class TestServer {
                 throw Throwables.propagate(e);
             }
         });
+        
         //must be settled
         assertBalance(transferred, senderStartBalance.subtract(token.balanceOf(senderAddress).get().getValue()));
         assertBalance(transferred, token.balanceOf(receiverAddress).get().getValue().subtract(receiverStartBalance));

@@ -18,10 +18,10 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import com.google.common.base.Preconditions;
 
 import papyrus.channel.Error;
-import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.contract.ChannelManagerContract;
 import papyrus.channel.node.server.channel.SignedChannelState;
+import papyrus.channel.node.server.channel.incoming.OutgoingChannelRegistry;
 import papyrus.channel.node.server.ethereum.ContractsManager;
 import papyrus.channel.node.server.ethereum.EthereumService;
 import papyrus.channel.node.server.ethereum.TokenService;
@@ -41,7 +41,7 @@ public class OutgoingChannelPool {
     private static final Logger log = LoggerFactory.getLogger(OutgoingChannelPool.class);
     
     private final ContractsManager contractsManager;
-    private final OutgoingChannelManager poolManager;
+    private final OutgoingChannelRegistry registry;
     private final EthereumService ethereumService;
     private final TokenService tokenService;
     private final PeerConnectionManager peerConnectionManager;
@@ -51,34 +51,34 @@ public class OutgoingChannelPool {
 
     private final Credentials credentials;
     private Address receiverAddress;
-    private volatile OutgoingChannelProperties channelProperties;
+    private volatile ChannelPoolProperties channelProperties;
     private final List<OutgoingChannelState> channels = Collections.synchronizedList(new ArrayList<>());
     private boolean shutdown;
 
     public OutgoingChannelPool(
-        OutgoingChannelManager poolManager,
-        OutgoingChannelProperties channelProperties,
+        OutgoingChannelRegistry registry,
+        ChannelPoolProperties channelProperties,
         EthereumService ethereumService,
-        TokenService tokenService,
         ContractsManager contractsManager,
         PeerConnectionManager peerConnectionManager,
-        EthereumConfig ethereumConfig,
+        Credentials senderCredentials,
+        Address signerAddress,
         Address receiverAddress
     ) {
-        this.poolManager = poolManager;
+        this.registry = registry;
         this.ethereumService = ethereumService;
-        this.tokenService = tokenService;
+        this.tokenService = contractsManager.getTokenService();
         this.peerConnectionManager = peerConnectionManager;
-        this.credentials = ethereumConfig.getCredentials();
-        this.senderAddress = ethereumConfig.getEthAddress();
-        this.signerAddress = ethereumConfig.getSignerAddress();
+        this.credentials = senderCredentials;
+        this.senderAddress = new Address(senderCredentials.getAddress());
+        this.signerAddress = signerAddress;
         this.receiverAddress = receiverAddress;
         this.channelProperties = channelProperties;
         this.contractsManager = contractsManager;
         this.watchThread = new Thread(this::cycle,"Channel pool OUT " + senderAddress + " -> " + receiverAddress);
     }
 
-    public void setChannelProperties(OutgoingChannelProperties channelProperties) {
+    public void setChannelProperties(ChannelPoolProperties channelProperties) {
         this.channelProperties = channelProperties;
     }
 
@@ -220,7 +220,7 @@ public class OutgoingChannelPool {
                 Address address = events.get(0).channel_address;
                 ChannelContract contract = contractsManager.load(ChannelContract.class, address);
                 contract.setTransactionReceipt(receipt);
-                poolManager.setAddress(channel, address);
+                registry.setAddress(channel, address);
                 return contract;
             } catch (Exception e) {
                 throw new RuntimeException(e);

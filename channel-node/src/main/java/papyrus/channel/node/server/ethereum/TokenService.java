@@ -3,26 +3,23 @@ package papyrus.channel.node.server.ethereum;
 import java.math.BigInteger;
 import java.util.concurrent.CompletableFuture;
 
-import org.springframework.stereotype.Service;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.generated.Uint256;
-import org.web3j.crypto.Credentials;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 
 import com.google.common.base.Throwables;
 
 import papyrus.channel.node.contract.PapyrusToken;
 
-@Service
 public class TokenService {
-    private final Credentials credentials;
     private final PapyrusToken papyrusToken;
+    private final Address address;
     private BigInteger balance;
     private CompletableFuture<BigInteger> balanceLoader;
 
-    public TokenService(Credentials credentials, ContractsManager contractsManager) {
-        this.credentials = credentials;
-        this.papyrusToken = contractsManager.token();
+    public TokenService(PapyrusToken papyrusToken, Address address) {
+        this.papyrusToken = papyrusToken;
+        this.address = address;
     }
 
     public synchronized BigInteger getBalance() {
@@ -61,7 +58,7 @@ public class TokenService {
 
     private BigInteger loadBalance() {
         try {
-            return papyrusToken.balanceOf(new Address(credentials.getAddress())).get().getValue();
+            return papyrusToken.balanceOf(address).get().getValue();
         } catch (Exception e) {
             throw Throwables.propagate(e);
         }
