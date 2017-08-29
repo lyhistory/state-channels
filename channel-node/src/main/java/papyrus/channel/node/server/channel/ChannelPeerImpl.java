@@ -28,12 +28,16 @@ public class ChannelPeerImpl extends ChannelPeerGrpc.ChannelPeerImplBase {
     @Override
     public void opened(ChannelOpenedRequest request, StreamObserver<ChannelOpenedResponse> responseObserver) {
         incomingChannelManager.register(new Address(request.getChannelId()));
+        responseObserver.onNext(ChannelOpenedResponse.newBuilder().build());
+        responseObserver.onCompleted();
     }
 
     @Override
     public void update(ChannelUpdateRequest request, StreamObserver<ChannelUpdateResponse> responseObserver) {
         try {
             incomingChannelManager.updateSenderState(new SignedChannelState(request.getState()));
+            responseObserver.onNext(ChannelUpdateResponse.newBuilder().build());
+            responseObserver.onCompleted();
         } catch (SignatureException e) {
             log.warn("Invalid signature", e);
             responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("Invalid signature").asException());

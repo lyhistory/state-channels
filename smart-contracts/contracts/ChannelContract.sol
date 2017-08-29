@@ -68,30 +68,24 @@ contract ChannelContract {
         balance = data.balance;
     }
 
-    /// @notice Close the channel. Can only be called by a participant in the channel.
-    /// @param theirs_encoded The last transfer recieved from our partner.
-//    function close(bytes theirs_encoded) {
-//        data.close(theirs_encoded);
-//        ChannelClosed(msg.sender, data.closed);
-//    }
-
-    /// @notice Dispute the state after closing, called by the counterparty (the
-    ///         participant who did not close the channel).
-    /// @param theirs_encoded The transfer the counterparty believes is the valid
-    ///                       state of the first participant.
-//    function updateTransfer(bytes theirs_encoded) {
-//        data.updateTransfer(theirs_encoded);
-//        TransferUpdated(msg.sender, block.number);
-//    }
+    /// @notice Close the channel. 
+    function close (
+        uint nonce,
+        uint256 completed_transfers,
+        bytes signature
+    ) {
+        data.close(address(this), nonce, completed_transfers, signature);
+        ChannelClosed(msg.sender, data.closed);
+    }
 
     /// @notice Settle the transfers and balances of the channel and pay out to
     ///         each participant. Can only be called after the channel is closed
     ///         and only after the number of blocks in the settlement timeout
     ///         have passed.
-//    function settle() {
-//        data.settle();
-//        ChannelSettled(data.settled);
-//    }
+    function settle() {
+        data.settle();
+        ChannelSettled(data.settled);
+    }
 
     /// @notice Returns whole state of contract as single call
     function state() constant returns (
@@ -103,23 +97,21 @@ contract ChannelContract {
         address,
         address,
         address,
-        address,
         uint256,
-        uint256,
+        uint,
         uint256
     ) {
         return (data.settle_timeout,
             data.opened,
             data.closed,
             data.settled,
-            data.closing_address,
             data.manager,
             data.sender,
             data.signer,
             data.receiver,
             data.balance,
-            data.sender_update.completed_transfers,
-            data.receiver_update.completed_transfers
+            data.nonce,
+            data.completed_transfers
         );
     }
 
@@ -151,12 +143,6 @@ contract ChannelContract {
     /// @return The block number for when the channel was settled.
     function settled() constant returns (uint) {
         return data.settled;
-    }
-
-    /// @notice Returns the address of the closing participant.
-    /// @return The address of the closing participant.
-    function closingAddress() constant returns (address) {
-        return data.closing_address;
     }
 
     function () { revert(); }

@@ -3,21 +3,23 @@ eth:
     node-url: http://localhost:8545
     gas-price: 1
     gas-limit: 2000000
+    sleep: 1s
   key:
     private-key: 06e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
-    auto-refill: 10
+    auto-refill: 0.1
 channel:
   server:
     port: 8080
     endpoint-url: grpc://localhost:8080
   contracts:
 #     make 'truffle migrate' and copy contract's addresses here
+#     addresses for net 'testrpc -b 1 --seed 5ee1d'
     predeployed:
-      ECRecovery: 0x0361a3aacad02715bee2f6c135686ad4127f12dc
-      ChannelLibrary: 0x84902b0094cbc4db91023525353d791ba47b18f0
-      EndpointRegistryContract: 0xf53b8941f15eea2fdc1550efe7a734bd349ffe2f
-      PapyrusToken: 0x99b4a210468a73f0e7c782c772ac4ad9dbd8ae67
-      ChannelManagerContract: 0xf90a4c1e951314fcf698decb5b95cdc065078da3
+      ECRecovery: 0x89661c19e52681c2744622428e0410f14295cad5
+      ChannelLibrary: 0xb2dfda13bd586377f58fd6422c77f13344f01853
+      EndpointRegistryContract: 0x45fff5f3cf4d0f440b742045fd95c5d76d7225d5
+      PapyrusToken: 0xb21a5bf93edb882c400ba335ad7f2fa7ff9792db
+      ChannelManagerContract: 0xcba783fb508f74e74d3f4b2d7656540f36f3ba7e
 logging:
   level:
    default: INFO

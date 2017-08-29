@@ -16,6 +16,7 @@ import org.web3j.abi.datatypes.Address;
 import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.ethereum.ContractsManager;
+import papyrus.channel.node.server.ethereum.EthereumService;
 import papyrus.channel.node.server.ethereum.TokenService;
 import papyrus.channel.node.server.peer.PeerConnectionManager;
 
@@ -25,6 +26,7 @@ public class OutgoingChannelManager {
     private final Map<Address, OutgoingChannelState> allChannelsByAddress = new ConcurrentHashMap<>();
 
     private final Address signerAddress;
+    private final EthereumService ethereumService;
     private final TokenService tokenService;
     private final ContractsManager contractsManager;
     private final ScheduledExecutorService executorService;
@@ -32,12 +34,13 @@ public class OutgoingChannelManager {
     private final EthereumConfig ethereumConfig;
 
     public OutgoingChannelManager(
-        TokenService tokenService, 
-        EthereumConfig ethereumConfig, 
-        ContractsManager contractsManager, 
-        ScheduledExecutorService executorService, 
+        EthereumService ethereumService, TokenService tokenService,
+        EthereumConfig ethereumConfig,
+        ContractsManager contractsManager,
+        ScheduledExecutorService executorService,
         PeerConnectionManager peerConnectionManager
     ) {
+        this.ethereumService = ethereumService;
         this.tokenService = tokenService;
         this.ethereumConfig = ethereumConfig;
         signerAddress = ethereumConfig.getSignerAddress();;
@@ -74,10 +77,10 @@ public class OutgoingChannelManager {
                 channelPool = new OutgoingChannelPool(
                     this, 
                     config,
+                    ethereumService, 
                     tokenService,
                     contractsManager, 
-                    peerConnectionManager, 
-                    executorService, 
+                    peerConnectionManager,
                     ethereumConfig, 
                     participantAddress
                 );
@@ -117,9 +120,14 @@ public class OutgoingChannelManager {
         channelState.registerTransfer(signedTransfer);
     }
 
-    void putChannel(OutgoingChannelState channel) {
-        if (allChannelsByAddress.putIfAbsent(channel.getChannelAddress(), channel) != null) {
+    void setAddress(OutgoingChannelState channel, Address channelAddress) {
+        if (allChannelsByAddress.putIfAbsent(channelAddress, channel) != null) {
             throw new IllegalStateException("Duplicate channel: " + channel.getChannelAddress());
         }
+    }
+
+    public boolean requestCloseChannel(Address address) {
+        OutgoingChannelState state = allChannelsByAddress.get(address);
+        return state != null && state.requestClose();
     }
 }

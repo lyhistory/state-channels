@@ -7,8 +7,15 @@ option java_package = "papyrus.channel.node";
 
 // Main configuration interface
 service ChannelAdmin {
+    
     // Creates or updates outgoing channel with given participant
     rpc AddParticipant(AddParticipantRequest) returns (AddParticipantResponse);
+
+    // Remove participant and asynchronously closes outgoing channels
+    rpc RemoveParticipant(RemoveParticipantRequest) returns (RemoveParticipantResponse);
+
+    // Forces channel to close as soon as possible
+    rpc RequestCloseChannel(CloseChannelRequest) returns (CloseChannelResponse);
 }
 
 message AddParticipantRequest {
@@ -16,9 +23,26 @@ message AddParticipantRequest {
     ChannelPropertiesMessage properties = 2;
     //number of simultaneously active open channels
     string deposit = 3;
-    int32 active_channels = 4;
+    int32 min_active_channels = 4;
+    int32 max_active_channels = 5;
 }
 
 message AddParticipantResponse {
+    Error error = 1;
+}
+
+message CloseChannelRequest {
+    string channel_address = 1;
+}
+
+message CloseChannelResponse {
+    Error error = 1;
+}
+
+message RemoveParticipantRequest {
+    string participant_address = 1;
+}
+
+message RemoveParticipantResponse {
     Error error = 1;
 }

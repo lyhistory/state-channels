@@ -22,13 +22,11 @@ public class LinkingManager extends TransactionManager {
     private final Map<String, Address> predeployed = new HashMap<>();
     private final TransactionManager manager;
     private final Web3j web3j;
-    private final EthereumConfig config;
 
     public LinkingManager(EthereumConfig config) {
-        super(config.getWeb3j());
+        super(config.getWeb3j(), config.getRpcProperties().getAttempts(), (int) config.getRpcProperties().getSleep().toMillis());
         this.web3j = config.getWeb3j();
         this.manager = new FastRawTransactionManager(web3j, config.getCredentials());
-        this.config = config;
     }
 
     public void provide(String name, Address contractAddress) {

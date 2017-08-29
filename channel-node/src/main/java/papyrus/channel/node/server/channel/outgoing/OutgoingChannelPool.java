@@ -1,15 +1,11 @@
 package papyrus.channel.node.server.channel.outgoing;
 
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -27,14 +23,16 @@ import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.contract.ChannelManagerContract;
 import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.ethereum.ContractsManager;
+import papyrus.channel.node.server.ethereum.EthereumService;
 import papyrus.channel.node.server.ethereum.TokenService;
 import papyrus.channel.node.server.peer.PeerConnection;
 import papyrus.channel.node.server.peer.PeerConnectionManager;
+import papyrus.channel.protocol.ChannelOpenedRequest;
+import papyrus.channel.protocol.ChannelOpenedResponse;
 import papyrus.channel.protocol.ChannelUpdateRequest;
 
 import static papyrus.channel.node.server.channel.outgoing.OutgoingChannelState.Status.ACTIVE;
-import static papyrus.channel.node.server.channel.outgoing.OutgoingChannelState.Status.CREATED;
-import static papyrus.channel.node.server.channel.outgoing.OutgoingChannelState.Status.CREATING;
+import static papyrus.channel.node.server.channel.outgoing.OutgoingChannelState.Status.DISPOSABLE;
 
 /**
  * Channel pool for single receiving address.
@@ -42,15 +40,15 @@ import static papyrus.channel.node.server.channel.outgoing.OutgoingChannelState.
 public class OutgoingChannelPool {
     private static final Logger log = LoggerFactory.getLogger(OutgoingChannelPool.class);
     
-    private final ScheduledExecutorService executorService;
     private final ContractsManager contractsManager;
     private final OutgoingChannelManager poolManager;
+    private final EthereumService ethereumService;
     private final TokenService tokenService;
     private final PeerConnectionManager peerConnectionManager;
     private final Address senderAddress;
     private final Address signerAddress;
+    private final Thread watchThread;
 
-    private ScheduledFuture<?> watchFuture;
     private final Credentials credentials;
     private Address receiverAddress;
     private volatile OutgoingChannelProperties channelProperties;
@@ -58,16 +56,17 @@ public class OutgoingChannelPool {
     private boolean shutdown;
 
     public OutgoingChannelPool(
-        OutgoingChannelManager poolManager, 
-        OutgoingChannelProperties channelProperties, 
+        OutgoingChannelManager poolManager,
+        OutgoingChannelProperties channelProperties,
+        EthereumService ethereumService,
         TokenService tokenService,
         ContractsManager contractsManager,
         PeerConnectionManager peerConnectionManager,
-        ScheduledExecutorService executorService, 
-        EthereumConfig ethereumConfig, 
+        EthereumConfig ethereumConfig,
         Address receiverAddress
     ) {
         this.poolManager = poolManager;
+        this.ethereumService = ethereumService;
         this.tokenService = tokenService;
         this.peerConnectionManager = peerConnectionManager;
         this.credentials = ethereumConfig.getCredentials();
@@ -76,7 +75,7 @@ public class OutgoingChannelPool {
         this.receiverAddress = receiverAddress;
         this.channelProperties = channelProperties;
         this.contractsManager = contractsManager;
-        this.executorService = executorService;
+        this.watchThread = new Thread(this::cycle,"Channel pool OUT " + senderAddress + " -> " + receiverAddress);
     }
 
     public void setChannelProperties(OutgoingChannelProperties channelProperties) {
@@ -88,30 +87,68 @@ public class OutgoingChannelPool {
     }
 
     private void cycle() {
-        try {
-            long activeOrOpening = channels.stream().filter(c -> c.getStatus().isAnyOf(ACTIVE, CREATED, CREATING)).count();
-            if (!shutdown && activeOrOpening < channelProperties.getActiveChannels()) {
-                OutgoingChannelState channel = new OutgoingChannelState(senderAddress, signerAddress, receiverAddress, channelProperties.getBlockchainProperties());
-                channels.add(channel);
-            }
-//            if (shutdown || activeOrOpening > channelProperties.getActiveChannels()) {
-// TODO               
-//            }
-            
-            for (OutgoingChannelState channel : channels) {
-                OutgoingChannelState.Status status = channel.getStatus();
-                try {
-                    makeTransitions(channel);
-                    if (channel.getStatus() != status) {
-                        log.info("Outgoing channel:{} to receiver:{} updated from:{} to:{}", channel.getAddressSafe(), receiverAddress, status, channel.getStatus());
+        while (!Thread.interrupted()) {
+            try {
+                boolean updated = false;
+                long notClosedOrClosing = channels.stream().filter(c -> !c.isClosed()).count();
+                if (!shutdown && notClosedOrClosing < channelProperties.getMinActiveChannels()) {
+                    channels.add(new OutgoingChannelState(senderAddress, signerAddress, receiverAddress, channelProperties.getBlockchainProperties()));
+                }
+                long active = channels.stream().filter(OutgoingChannelState::isActive).count();
+                if (active > channelProperties.getMaxActiveChannels()) {
+                    channels.stream()
+                        .filter(ch -> ch.isActive() && ch.getOpenBlock() > 0)
+                        .sorted(Comparator.comparing(OutgoingChannelState::getOpenBlock))
+                        .limit(active - channelProperties.getMaxActiveChannels())
+                        .forEach(this::closeChannel);
+                }
+                channels.removeIf(ch -> ch.getStatus() == DISPOSABLE);
+
+                for (OutgoingChannelState channel : channels) {
+                    OutgoingChannelState.Status status = channel.getStatus();
+                    try {
+                        if (channel.checkTransitionInProgress()) continue;
+
+                        if (channel.isCloseRequested()) {
+                            closeChannel(channel);
+                        } else {
+                            makeTransitions(channel);
+                        }
+
+                        if (channel.getStatus() != status) {
+                            updated = true;
+                            log.info("Outgoing channel:{} to receiver:{} updated from:{} to:{}", channel.getAddressSafe(), receiverAddress, status, channel.getStatus());
+                        }
+                    } catch (Exception e) {
+                        log.info("Channel update completed exceptionally", e);
+                        //TODO error handling 
                     }
-                } catch (Exception e) {
-                    log.info("Channel update completed exceptionally", e);
-                    //TODO error handling 
+                }
+                if (!updated) {
+                    Thread.sleep(1000L);
+                }
+            } catch (InterruptedException e) {
+                break;
+            } catch (Throwable e) {
+                log.error("Cycle failed", e);
+                try {
+                    Thread.sleep(1000L);
+                } catch (InterruptedException e1) {
+                    break;
                 }
             }
-        } catch (Throwable e) {
-            log.error("Cycle failed", e);
+        }
+    }
+
+    private void closeChannel(OutgoingChannelState channel) {
+        switch (channel.getStatus()) {
+            case NEW:
+                channel.makeDisposable();
+                break;
+            case CREATED:
+            case ACTIVE:
+                channel.doClose();
+                break;
         }
     }
 
@@ -120,37 +157,34 @@ public class OutgoingChannelPool {
             case NEW:
                 startCreating(channel);
                 break;
-            case CREATING:
-                checkIfCreated(channel);
-                break;
             case CREATED:
-                //TODO ask counterparty
-                checkDeposit(channel);
+                channel.approveDeposit(tokenService, channelProperties.getDeposit());
+                break;
+            case DEPOSIT_APPROVED:
+                channel.deposit(channelProperties.getDeposit());
+                break;
+            case OPENED:
+                PeerConnection connection = peerConnectionManager.getConnection(receiverAddress);
+                ChannelOpenedResponse response = connection.getChannelPeer().opened(ChannelOpenedRequest.newBuilder().setChannelId(channel.getChannelAddress().toString()).build());
+                if (response.hasError()) {
+                    log.warn("Failed to notify counterparty {}", response.getError().getMessage());
+                } else {
+                    channel.setActive();
+                }
                 break;
             case ACTIVE:
                 if (channel.isNeedsSync()) {
+                    //TODO make async call
                     syncChannel(channel);
                 }
                 break;
-            case SUSPENDING:
-                break;
             case CLOSED:
+                channel.settleIfPossible(ethereumService.getBlockNumber());
                 break;
             case SETTLED:
                 break;
             case DISPUTING:
                 break;
-        }
-    }
-
-    private void checkDeposit(OutgoingChannelState channel) {
-        if (channel.isDepositDeploying()) {
-            channel.checkDepositCompleted();
-        } else {
-            BigInteger balance = channel.getBalance();
-            BigInteger deposit = channelProperties.getDeposit();
-            BigInteger required = deposit.subtract(balance);
-            channel.deposit(tokenService, required);
         }
     }
 
@@ -175,7 +209,7 @@ public class OutgoingChannelPool {
             new Uint256(channelProperties.getBlockchainProperties().getSettleTimeout())
         );
         //todo store transaction hash instead of future
-        channel.onDeploying(CompletableFuture.supplyAsync(() -> {
+        channel.startDeploying(CompletableFuture.supplyAsync(() -> {
             try {
                 TransactionReceipt receipt = future.get();
                 List<ChannelManagerContract.ChannelNewEventResponse> events = contractsManager.channelManager().getChannelNewEvents(receipt);
@@ -186,6 +220,7 @@ public class OutgoingChannelPool {
                 Address address = events.get(0).channel_address;
                 ChannelContract contract = contractsManager.load(ChannelContract.class, address);
                 contract.setTransactionReceipt(receipt);
+                poolManager.setAddress(channel, address);
                 return contract;
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -193,21 +228,15 @@ public class OutgoingChannelPool {
         }));
     }
 
-    private void checkIfCreated(OutgoingChannelState channel) {
-        channel.checkIfDeployed().ifPresent(contract -> {
-            channel.onDeployed(contract);
-            poolManager.putChannel(channel);
-        });
-    }
-
     public void start() {
-        watchFuture = executorService.scheduleWithFixedDelay(this::cycle, ThreadLocalRandom.current().nextInt(1), 1, TimeUnit.SECONDS);
+        watchThread.start();
     }
 
     public void destroy() {
+        log.info("Destroying pool {}", receiverAddress);
         //TODO close all channels
-        if (watchFuture != null) {
-            watchFuture.cancel(false);
+        if (watchThread != null) {
+            watchThread.interrupt();
         }
     }
 
@@ -219,5 +248,6 @@ public class OutgoingChannelPool {
 
     public void shutdown() {
         this.shutdown = true;
+        channels.forEach(this::closeChannel);
     }
 }

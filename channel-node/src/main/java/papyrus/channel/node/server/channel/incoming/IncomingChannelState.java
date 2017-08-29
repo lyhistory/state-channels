@@ -58,4 +58,9 @@ public class IncomingChannelState {
     public Address getChannelAddress() {
         return channel.getChannelAddress();
     }
+
+    public void requestClose() {
+        //TODO
+        throw new UnsupportedOperationException();
+    }
 }

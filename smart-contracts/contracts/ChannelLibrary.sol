@@ -7,25 +7,27 @@ import './ChannelManagerContract.sol';
 //Papyrus State Channel Library
 //moved to separate library to save gas
 library ChannelLibrary {
-    struct StateUpdate {
-        uint256 completed_transfers;
-    }
-
+    
     struct Data {
         uint settle_timeout;
         uint opened;
         uint closed;
         uint settled;
-        address closing_address;
         ChannelManagerContract manager;
     
         address sender;
         address receiver;
         address signer;
-        uint256 balance;
+        uint balance;
 
-        StateUpdate sender_update; 
-        StateUpdate receiver_update; 
+        //state update for close
+        uint nonce;
+        uint completed_transfers;
+    }
+
+    struct StateUpdate {
+        uint nonce;
+        uint completed_transfers;
     }
 
     modifier notSettledButClosed(Data storage self) {
@@ -70,9 +72,11 @@ library ChannelLibrary {
         require(self.opened > 0);
         require(self.closed == 0);
 
-        require (self.manager.token().balanceOf(msg.sender) >= amount);
+        StandardToken token = self.manager.token();
 
-        success = self.manager.token().transferFrom(msg.sender, this, amount);
+        require (token.balanceOf(msg.sender) >= amount);
+
+        success = token.transferFrom(msg.sender, this, amount);
     
         if (success == true) {
             self.balance += amount;
@@ -83,47 +87,57 @@ library ChannelLibrary {
         return (false, 0);
     }
 
-    function update(
+    function close(
         Data storage self,
-        uint64 nonce,
-        uint256 transferred_amount,
+        address channel_address,
+        uint nonce,
+        uint completed_transfers,
         bytes signature
     )
     {
-        bytes32 signed_hash;
-
-        signed_hash = sha3(
-            nonce,
-            transferred_amount
-        );
+        require(nonce > self.nonce);
+        require(completed_transfers >= self.completed_transfers);
+        require(completed_transfers <= self.balance);
     
-        address sign_address = ECRecovery.recover(signed_hash, signature);
-        require(sign_address == self.sender);
+        if (msg.sender != self.sender) {
+            //checking signature
+            bytes32 signed_hash;
+
+            signed_hash = sha3 (
+            channel_address,
+            nonce,
+            completed_transfers
+            );
+
+            address sign_address = ECRecovery.recover(signed_hash, signature);
+            require(sign_address == self.sender);
+        }
+
+        if (self.closed == 0) {
+            self.closed = block.number;
+        }
+    
+        self.nonce = nonce;
+        self.completed_transfers = completed_transfers;
     }
 
-    function getRawData(bytes memory signed_data) internal returns (bytes memory, address) {
-        uint length = signed_data.length;
-        uint signature_start = length - 65;
-        bytes memory signature = slice(signed_data, signature_start, length);
-        bytes memory data_raw = slice(signed_data, 0, signature_start);
-
-        bytes32 hash = sha3(data_raw);
-        address transfer_address = ECRecovery.recover(hash, signature);
-
-        return (data_raw, transfer_address);
-    }
-
-    function slice(bytes a, uint start, uint end) private returns (bytes n) {
-        if (a.length < end) {
-            revert();
-        }
-        if (start < 0) {
-            revert();
+    /// @notice Settles the balance between the two parties
+    /// @dev Settles the balances of the two parties fo the channel
+    /// @return The participants with netted balances
+    function settle(Data storage self)
+        notSettledButClosed(self)
+        timeoutOver(self)
+    {
+        StandardToken token = self.manager.token();
+        
+        if (self.completed_transfers > 0) {
+            require(token.transfer(self.receiver, self.completed_transfers));
         }
 
-        n = new bytes(end - start);
-        for (uint i = start; i < end; i++) { //python style slice
-            n[i - start] = a[i];
+        if (self.completed_transfers < self.balance) {
+            require(token.transfer(self.sender, self.balance - self.completed_transfers));
         }
+
+        self.settled = block.number;
     }
 }

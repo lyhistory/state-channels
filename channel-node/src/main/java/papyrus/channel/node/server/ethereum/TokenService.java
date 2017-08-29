@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.crypto.Credentials;
+import org.web3j.protocol.core.methods.response.TransactionReceipt;
 
 import com.google.common.base.Throwables;
 
@@ -46,7 +47,7 @@ public class TokenService {
         balance = null;
     }
 
-    public synchronized void approve(Address spender, BigInteger value) {
+    public synchronized CompletableFuture<TransactionReceipt> approve(Address spender, BigInteger value) {
         if (getBalance().compareTo(value) < 0) {
             //try again
             reloadBalance();
@@ -54,13 +55,8 @@ public class TokenService {
                 throw new IllegalStateException("Not enough funds to make deposit: " + balance);
             }
         }
-        try {
-            papyrusToken.approve(spender, new Uint256(value)).get();
-            balance = balance.subtract(value);
-        } catch (Exception e) {
-            invalidateBalance();
-            throw Throwables.propagate(e); 
-        }
+        balance = balance.subtract(value);
+        return (CompletableFuture<TransactionReceipt>) papyrusToken.approve(spender, new Uint256(value));
     }
 
     private BigInteger loadBalance() {

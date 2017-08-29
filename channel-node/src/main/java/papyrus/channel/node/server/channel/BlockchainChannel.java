@@ -25,8 +25,8 @@ public class BlockchainChannel {
     private long created;
     private long closed;
     private long settled;
-    private BigInteger senderUpdateTransfers = BigInteger.ZERO;
-    private BigInteger receiverUpdateTransfers = BigInteger.ZERO;
+    private long nonce;
+    private BigInteger completedTransfers = BigInteger.ZERO;
 
     ChannelContract contract;
 
@@ -41,45 +41,44 @@ public class BlockchainChannel {
     }
 
     private BlockchainChannel(Address managerAddress, ChannelContract contract, List<Type> st) {
-        Preconditions.checkArgument(st.size() == 12);
+        int i = 0;
 //            uint settle_timeout,
-        long timeout = ((Uint) st.get(0)).getValue().longValueExact();
+        long timeout = ((Uint) st.get(i++)).getValue().longValueExact();
         Preconditions.checkState(timeout > 0);
         BlockchainChannelProperties properties = new BlockchainChannelProperties();
         properties.setSettleTimeout(timeout);
         this.properties = properties;
 //            uint opened,
-        created = ((Uint) st.get(1)).getValue().longValueExact();
+        created = ((Uint) st.get(i++)).getValue().longValueExact();
         Preconditions.checkState(created > 0);
 //            uint closed,
-        closed = ((Uint) st.get(2)).getValue().longValueExact();
+        closed = ((Uint) st.get(i++)).getValue().longValueExact();
         Preconditions.checkState(closed >= 0);
 //            uint settled,
-        settled = ((Uint) st.get(3)).getValue().longValueExact();
+        settled = ((Uint) st.get(i++)).getValue().longValueExact();
         Preconditions.checkState(settled >= 0);
-//            address closing_address,
-        closingAddress = address(st.get(4));
 //            address manager,
-        Address manager_address = address(st.get(5));
+        Address manager_address = address(st.get(i++));
         Preconditions.checkArgument(managerAddress.equals(manager_address), "Wrong manager address: %s", manager_address);
 //            address sender,
-        senderAddress = address(st.get(6));
+        senderAddress = address(st.get(i++));
         Preconditions.checkState(senderAddress != null);
 //            address signer,
-        signerAddress = address(st.get(7));
+        signerAddress = address(st.get(i++));
         Preconditions.checkState(signerAddress != null);
 //            address receiver,
-        receiverAddress = address(st.get(8));
+        receiverAddress = address(st.get(i++));
         Preconditions.checkState(receiverAddress != null);
 //            uint256 balance,
-        balance = ((Uint) st.get(9)).getValue();
+        balance = ((Uint) st.get(i++)).getValue();
         Preconditions.checkState(balance.signum() >= 0);
 //            uint256 sender_update.completed_transfers,
-        senderUpdateTransfers = ((Uint) st.get(10)).getValue();
-        Preconditions.checkState(senderUpdateTransfers.signum() >= 0);
+        nonce = ((Uint) st.get(i++)).getValue().longValueExact();
+        Preconditions.checkState(nonce >= 0);
 //            uint256 receiver_update.completed_transfers
-        receiverUpdateTransfers = ((Uint) st.get(11)).getValue();
-        Preconditions.checkState(receiverUpdateTransfers.signum() >= 0);
+        completedTransfers = ((Uint) st.get(i++)).getValue();
+        Preconditions.checkState(completedTransfers.signum() >= 0);
+        Preconditions.checkArgument(st.size() == i);
         this.contract = contract;
     }
 
@@ -94,6 +93,10 @@ public class BlockchainChannel {
 
     public Address getReceiverAddress() {
         return receiverAddress;
+    }
+
+    public Address getSignerAddress() {
+        return signerAddress;
     }
 
     public Address getChannelAddress() {
@@ -156,20 +159,20 @@ public class BlockchainChannel {
         this.created = created;
     }
 
-    public BigInteger getSenderUpdateTransfers() {
-        return senderUpdateTransfers;
+    public long getNonce() {
+        return nonce;
     }
 
-    public void setSenderUpdateTransfers(BigInteger senderUpdateTransfers) {
-        this.senderUpdateTransfers = senderUpdateTransfers;
+    public void setNonce(long nonce) {
+        this.nonce = nonce;
     }
 
-    public BigInteger getReceiverUpdateTransfers() {
-        return receiverUpdateTransfers;
+    public BigInteger getCompletedTransfers() {
+        return completedTransfers;
     }
 
-    public void setReceiverUpdateTransfers(BigInteger receiverUpdateTransfers) {
-        this.receiverUpdateTransfers = receiverUpdateTransfers;
+    public void setCompletedTransfers(BigInteger completedTransfers) {
+        this.completedTransfers = completedTransfers;
     }
 
     public void linkNewContract(ChannelContract contract) {

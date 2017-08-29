@@ -84,4 +84,11 @@ public class IncomingChannelManager {
         }
         channelState.registerTransfer(signedTransfer);
     }
+
+    public void requestCloseChannel(Address address) {
+        IncomingChannelState channelState = allChannels.get(address);
+        if (channelState != null) {
+            channelState.requestClose();
+        }
+    }
 }

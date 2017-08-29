@@ -1,20 +1,20 @@
 package papyrus.channel.node.server.channel.outgoing;
 
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.web3j.abi.datatypes.Address;
+import org.web3j.abi.datatypes.DynamicBytes;
 import org.web3j.abi.datatypes.generated.Uint256;
-import org.web3j.protocol.core.methods.response.TransactionReceipt;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 
 import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.entity.BlockchainChannelProperties;
@@ -35,9 +35,9 @@ public class OutgoingChannelState {
     private Map<BigInteger, SignedTransfer> transfers = new HashMap<>();
     private long currentNonce;
     private long syncedNonce;
-    CompletableFuture<ChannelContract> deployingContract;
-    private Future<TransactionReceipt> depositFuture;
-    private BigInteger depositPending;
+    private volatile boolean closeRequested;
+
+    private StateTransition transition;
 
     public OutgoingChannelState(Address senderAddress, Address signerAddress, Address receiverAddress, BlockchainChannelProperties properties) {
         channel = new BlockchainChannel(senderAddress, signerAddress, receiverAddress);
@@ -46,7 +46,11 @@ public class OutgoingChannelState {
     }
 
     public boolean isClosed() {
-        return channel.getCreated() > 0;
+        return closeRequested || channel != null && channel.getClosed() > 0 || getPendingStatus() == Status.CLOSED;
+    }
+
+    public boolean isActive() {
+        return !closeRequested && status == Status.ACTIVE && getPendingStatus() == Status.ACTIVE;
     }
 
     public boolean isSettled() {
@@ -57,29 +61,18 @@ public class OutgoingChannelState {
         return channel.getChannelAddress();
     }
 
-    public void onDeploying(CompletableFuture<ChannelContract> deployingContract) {
+    public void startDeploying(CompletableFuture<ChannelContract> deployingContract) {
         checkStatus(Status.NEW);
         checkNotNull(deployingContract);
-        this.deployingContract = deployingContract;
-        setStatus(Status.CREATING);
+        startTransition(Status.CREATED, deployingContract, contract -> channel.linkNewContract(contract));
     }
 
-    public void onDeployed(ChannelContract contract) {
-        Preconditions.checkNotNull(contract);
-        checkStatus(Status.CREATING);
-
-        this.deployingContract = null;
-        channel.linkNewContract(contract);
-        
-        setStatus(Status.CREATED);
-    }
-
-    private void checkStatus(Status expected) {
-        checkState(status == expected,"Invalid status: %s, expected: %s", status, expected);
+    private void checkStatus(Status... expected) {
+        checkState(status.isAnyOf(expected),"Invalid status: %s, expected: %s", status, expected.length == 1 ? expected[0] : Arrays.asList(expected));
     }
 
     public void setActive() {
-        checkStatus(Status.CREATED);
+        checkStatus(Status.OPENED);
         setStatus(Status.ACTIVE);
     }
 
@@ -91,19 +84,31 @@ public class OutgoingChannelState {
         return status;
     }
 
+    public Status getPendingStatus() {
+        StateTransition tr = this.transition;
+        return tr != null ? tr.nextStatus : status;
+    }
+    
+    public boolean checkTransitionInProgress() {
+        if (transition != null) transition.checkAndApply();
+        return transition != null;
+    }
+
     public BigInteger getTransferedAmount() {
         return transferedAmount;
     }
 
+    public long getOpenBlock() {
+        return channel != null ? channel.getCreated() : 0;
+    }
+    
+    public BigInteger getTransferredAmount() {
+        return channel != null ? channel.getCompletedTransfers() : BigInteger.ZERO; 
+    }
+    
     String getAddressSafe() {
         if (channel.getChannelAddress() != null) return channel.getChannelAddress().toString();
         return status.toString();
-    }
-
-    public Optional<ChannelContract> checkIfDeployed() {
-        checkStatus(Status.CREATING);
-        Preconditions.checkNotNull(deployingContract);
-        return Optional.ofNullable(deployingContract.getNow(null));
     }
 
     public synchronized boolean registerTransfer(SignedTransfer transfer) {
@@ -132,70 +137,99 @@ public class OutgoingChannelState {
     }
 
     public synchronized void syncCompleted(SignedChannelState state) {
-        syncedNonce = currentNonce;
+        syncedNonce = state.getNonce();
     }
 
     public BigInteger getBalance() {
         return channel.getBalance();
     }
 
-    public void deposit(TokenService token, BigInteger value) {
+    public void approveDeposit(TokenService token, BigInteger value) {
         checkStatus(Status.CREATED);
-        Preconditions.checkState(depositFuture == null);
-        if (value.signum() > 0) {
-            depositFuture = CompletableFuture.supplyAsync(() -> {
-                try {
-                    token.approve(channel.getChannelAddress(), value);
-                    //TODO rollback approval in case contract was not created
-                    return channel.getContract().deposit(new Uint256(value)).get();
-                } catch (Exception e) {
-                    throw Throwables.propagate(e);
-                }
-            });
-            depositPending = value;
+        startTransition(
+            Status.DEPOSIT_APPROVED,
+            token.approve(channel.getChannelAddress(), value)
+        );
+    }
+
+    public void deposit(BigInteger value) {
+        checkStatus(Status.DEPOSIT_APPROVED);
+        startTransition(
+            Status.OPENED, 
+            channel.getContract().deposit(new Uint256(value)),
+            tr -> channel.setBalance(channel.getBalance().add(value))
+        );
+    }
+    
+    public boolean requestClose() {
+        if (!status.isAnyOf(Status.SETTLED, Status.DISPUTING)) {
+            this.closeRequested = true;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean isCloseRequested() {
+        return closeRequested;
+    }
+
+    void setCloseRequested(boolean closeRequested) {
+        this.closeRequested = closeRequested;
+    }
+
+    public void makeDisposable() {
+        Preconditions.checkState(status.isAnyOf(Status.NEW, Status.SETTLED));
+        this.status = Status.DISPOSABLE;
+    }
+
+    public void doClose() {
+        checkStatus(Status.CREATED, Status.ACTIVE);
+        startTransition(Status.CLOSED, 
+            channel.getContract().close(
+                new Uint256(currentNonce),
+                new Uint256(transferedAmount),
+                new DynamicBytes(new byte[0])
+            ),
+            tr -> channel.setClosed(tr.getBlockNumber().longValueExact())
+        );
+    }
+    
+    
+    public void settleIfPossible(long currentBlockNumber) {
+        Preconditions.checkState(channel.getClosed() > 0);
+        Preconditions.checkState(channel.getSettled() == 0);
+        checkStatus(Status.CLOSED);
+        long blocksLeft = channel.getClosed() + channel.getProperties().getSettleTimeout() - currentBlockNumber;  
+        if (blocksLeft <= 0) {
+            startTransition(
+                Status.SETTLED, 
+                channel.getContract().settle(),
+                tr -> channel.setSettled(tr.getBlockNumber().longValueExact())
+            );
         } else {
-            status = Status.ACTIVE;
+            log.debug("Waiting settle timeout for channel {} blocks left: {}", getAddressSafe(), blocksLeft);
         }
     }
     
-    public boolean isDepositDeploying() {
-        return depositFuture != null;
-    }
-
-    public void checkDepositCompleted() {
-        checkStatus(Status.CREATED);
-        if (depositFuture.isDone()) {
-            try {
-                depositFuture.get();
-            } catch (Exception e) {
-                depositFuture = null;
-                depositPending = null;
-                throw Throwables.propagate(e);
-            }
-            channel.setBalance(channel.getBalance().add(depositPending));
-            depositFuture = null;
-            depositPending = null;                            
-            status = Status.ACTIVE;
-        }
-    }
-
     public enum Status {
         /** Fresh new object */
         NEW,
-        /** Requested contract creation waiting for transaction receipt */
-        CREATING,
         /** Created in blockchain */
         CREATED,
+        /** Deposit approved */
+        DEPOSIT_APPROVED,
+        /** Active (deposit added) */
+        OPENED, 
         /** Active (deposit added) */
         ACTIVE, 
-        /** Accept transactions from client, but not return as active */
-        SUSPENDING, 
         /** Closed in blockchain. */
         CLOSED, 
         /** Settled */
         SETTLED, 
         /** Dispute process initiated */
         DISPUTING,
+        /** All operations completed, may forget about channel */
+        DISPOSABLE,
         ;
         
         public boolean isAnyOf(Status ... statuses) {
@@ -203,5 +237,40 @@ public class OutgoingChannelState {
                 if (status == this) return true;
             return false;
         }
+    }
+    
+    private abstract class StateTransition {
+        Status nextStatus;
+
+        public StateTransition(Status nextStatus) {
+            this.nextStatus = nextStatus;
+        }
+
+        abstract void checkAndApply();
+    }
+
+    private <T> void startTransition(Status nextStatus, Future<T> task) {
+        startTransition(nextStatus, task, t -> {});
+    }
+    
+    private <T> void startTransition(Status nextStatus, Future<T> task, Consumer<T> applyResult) {
+        Status prevStatus = status;
+        log.warn("Channel {} starting transition {}->{}", getAddressSafe(), prevStatus, nextStatus);
+        Preconditions.checkState(transition == null);
+        transition = new StateTransition(nextStatus) {
+            @Override
+            void checkAndApply() {
+                if (task.isDone()) {
+                    transition = null;
+                    try {
+                        applyResult.accept(task.get());
+                        status = nextStatus;
+                        log.warn("Channel {} transition {}->{} SUCCESS", getAddressSafe(), prevStatus, nextStatus);
+                    } catch (Exception e) {
+                        log.warn("Channel {} transition {}->{} FAILED", getAddressSafe(), prevStatus, nextStatus, e);
+                    }
+                }
+            }
+        }; 
     }
 }

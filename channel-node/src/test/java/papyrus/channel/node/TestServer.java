@@ -2,35 +2,46 @@ package papyrus.channel.node;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.util.Collection;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.beans.BeansException;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
+import org.web3j.utils.Convert;
 
-import papyrus.channel.ChannelProperties;
+import com.google.common.base.Throwables;
+
+import papyrus.channel.ChannelPropertiesMessage;
 import papyrus.channel.Error;
 import papyrus.channel.node.config.EthKeyProperties;
+import papyrus.channel.node.contract.PapyrusToken;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelManager;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelState;
+import papyrus.channel.node.server.ethereum.ContractsManager;
 import papyrus.channel.node.server.peer.PeerConnection;
 
 public class TestServer {
 
     private static final String PROFILES = "test,testrpc";
-    
+    public static final long MAX_WAIT = 60000L;
+
     private ConfigurableApplicationContext sender;
     private ConfigurableApplicationContext receiver;
     private PeerConnection senderClient;
     private PeerConnection receiverClient;
     private Credentials signerCredentials;
+    private PapyrusToken token;
 
     @Before
     public void init() throws IOException, CipherException {
@@ -43,6 +54,7 @@ public class TestServer {
         Assert.assertNotNull(senderClient);
         receiverClient = receiver.getBean(PeerConnection.class);
         Assert.assertNotNull(receiverClient);
+        token = sender.getBean(ContractsManager.class).token();
     }
 
     private ConfigurableApplicationContext createServerContext(String profile) {
@@ -60,39 +72,58 @@ public class TestServer {
     }
     
     @Test
-    public void testSendEther() throws InterruptedException {
+    public void testSendEther() throws InterruptedException, ExecutionException {
         //add participant - this will initiate channels opening
         Address senderAddress = new Address(sender.getBean(Credentials.class).getAddress());
+        Address receiverAddress = new Address(receiver.getBean(Credentials.class).getAddress());
 
+        BigInteger senderStartBalance = token.balanceOf(senderAddress).get().getValue();
+        BigInteger receiverStartBalance = token.balanceOf(receiverAddress).get().getValue();
+
+        BigInteger deposit = Convert.toWei("1", Convert.Unit.ETHER).toBigIntegerExact();
         senderClient.getClientAdmin().addParticipant(
             AddParticipantRequest.newBuilder()
                 .setParticipantAddress(receiver.getBean(Credentials.class).getAddress())
-                .setDeposit("100000")
-                .setActiveChannels(1)
-                .setProperties(ChannelProperties.newBuilder()
-                    .setCloseTimeout(10)
-                    .setSettleTimeout(10)
+                .setDeposit(deposit.toString())
+                .setMinActiveChannels(1)
+                .setMaxActiveChannels(1)
+                .setProperties(ChannelPropertiesMessage.newBuilder()
+                    .setCloseTimeout(1)
+                    .setSettleTimeout(6)
                     .build())
                 .build()
         );
 
-        ChannelStatusResponse response;
-        for (int i = 0; ; i ++) {
-            Assert.assertTrue(i < 10);
-            response = senderClient.getOutgoingChannelClient().getChannels(
+        ChannelStatusResponse response = waitFor(() -> 
+            senderClient.getOutgoingChannelClient().getChannels(
                 ChannelStatusRequest.newBuilder()
                     .setParticipantAddress(receiver.getBean(Credentials.class).getAddress())
                     .build()
-            );
-            if (!response.getChannelList().isEmpty()) {
-                break;
-            }
-            Thread.sleep(2000);
-        }
-
+            ), 
+            r -> !r.getChannelList().isEmpty()
+        );
+        
         String channelAddress = response.getChannel(0).getChannelAddress();
 
-        SignedTransfer transfer = new SignedTransfer("1", channelAddress, "1000");
+        IncomingChannelState channelState = waitFor(
+            () -> {
+                try {
+                    IncomingChannelManager incomingChannelManager = receiver.getBean(IncomingChannelManager.class);
+                    return incomingChannelManager.getChannels(senderAddress);
+                } catch (BeansException e) {
+                    throw Throwables.propagate(e);
+                }
+            },
+            ch -> ch.size() >= 1
+        ).iterator().next();
+        
+        Assert.assertEquals(BigInteger.ZERO, channelState.getOwnState().getCompletedTransfers());
+
+        assertBalance(deposit, senderStartBalance.subtract(token.balanceOf(senderAddress).get().getValue()));
+
+        BigInteger transferred = Convert.toWei("0.001", Convert.Unit.ETHER).toBigIntegerExact();
+
+        SignedTransfer transfer = new SignedTransfer("1", channelAddress, transferred.toString());
         transfer.sign(signerCredentials.getEcKeyPair());
         
         assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
@@ -100,26 +131,74 @@ public class TestServer {
             .build()
         ).getError());
 
-        Thread.sleep(2000);
+        waitFor(() -> channelState.getReceiverState() != null && channelState.getReceiverState().getCompletedTransfers().signum() > 0);
 
-        IncomingChannelManager incomingChannelManager = receiver.getBean(IncomingChannelManager.class);
-        Collection<IncomingChannelState> channels = incomingChannelManager.getChannels(senderAddress);
-        Assert.assertEquals(1, channels.size());
-        IncomingChannelState channelState = channels.iterator().next();
-        Assert.assertEquals(BigInteger.valueOf(1000), channelState.getReceiverState().getCompletedTransfers());
+        Assert.assertEquals(transferred, channelState.getReceiverState().getCompletedTransfers());
 
         assertNoError(receiverClient.getIncomingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
             .addTransfer(transfer.toMessage())
             .build()
         ).getError());
 
-        Thread.sleep(2000);
+        waitFor(() -> channelState.getOwnState().getCompletedTransfers().signum() > 0);
 
-        Assert.assertEquals(BigInteger.valueOf(1000), channelState.getOwnState().getCompletedTransfers());
+        Assert.assertEquals(transferred, channelState.getOwnState().getCompletedTransfers());
         Assert.assertTrue(channelState.getReceiverState() != null);
-        Assert.assertEquals(BigInteger.valueOf(1000), channelState.getReceiverState().getCompletedTransfers());
+        Assert.assertEquals(transferred, channelState.getReceiverState().getCompletedTransfers());
+        
+        
+        assertNoError(
+            senderClient.getClientAdmin().removeParticipant(
+                RemoveParticipantRequest.newBuilder()
+                    .setParticipantAddress(receiverAddress.toString())
+                    .build()
+            ).getError()
+        );
+        
+        waitFor(() -> {
+            try {
+                return channelState.getChannel().getContract().settled().get().getValue().signum() > 0;
+            } catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+        });
+        //must be settled
+        assertBalance(transferred, senderStartBalance.subtract(token.balanceOf(senderAddress).get().getValue()));
+        assertBalance(transferred, token.balanceOf(receiverAddress).get().getValue().subtract(receiverStartBalance));
     }
 
+    private <T> T waitFor(Supplier<T> supplier, Predicate<T> condition) throws InterruptedException {
+        AtomicReference<T> reference = new AtomicReference<>();
+        waitFor(()-> {
+            T t = supplier.get();
+            reference.set(t);
+            return condition.test(t);
+        });
+        return reference.get();
+    }
+
+    private void waitFor(Supplier<Boolean> condition) throws InterruptedException {
+        long start = System.currentTimeMillis();
+        long sleep = 10L;
+        do {
+            long left = (start + MAX_WAIT) - System.currentTimeMillis();
+            
+            if (left < 0)
+                throw new IllegalStateException("Timeout waiting for condition " + condition);
+
+            Thread.sleep(Math.min(sleep, left));
+            
+            sleep *= 1.5;
+            
+        } while (!condition.get());
+    }
+
+    static void assertBalance(BigInteger a, BigInteger b) {
+        if (a.subtract(b).abs().compareTo(BigInteger.valueOf(10000)) > 0) {
+            Assert.assertEquals(a, b);
+        }
+    }
+    
     private void assertNoError(Error error) {
         Assert.assertEquals(error.getMessage(), 0, error.getStatusValue());
     }
