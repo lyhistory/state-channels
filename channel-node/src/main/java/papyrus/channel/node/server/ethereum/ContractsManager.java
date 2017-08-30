@@ -133,7 +133,7 @@ public class ContractsManager {
     }
 
     private String checkContractExists(String name, String contractAddress) throws IOException {
-        String code = EthUtil.getContractCode(web3j, contractAddress);
+        String code = CryptoUtil.getContractCode(web3j, contractAddress);
         if (code.equals("0")) {
             throw new IllegalStateException("Contract " + name + " is not deployed at address: " + contractAddress);
         }

@@ -7,7 +7,7 @@ import org.web3j.abi.datatypes.Address;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.ByteString;
 
-import papyrus.channel.node.server.ethereum.EthUtil;
+import papyrus.channel.node.server.ethereum.CryptoUtil;
 import papyrus.channel.node.server.ethereum.SignedObject;
 import papyrus.channel.protocol.ChannelStateMessage;
 
@@ -62,6 +62,6 @@ public class SignedChannelState extends SignedObject {
     }
 
     public byte[] hash() {
-        return EthUtil.soliditySha3(nonce, channelAddress, completedTransfers);
+        return CryptoUtil.soliditySha3(nonce, channelAddress, completedTransfers);
     }
 }

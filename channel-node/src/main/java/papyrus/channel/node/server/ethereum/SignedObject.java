@@ -23,11 +23,11 @@ public abstract class SignedObject extends DataObject {
 
     public void sign(ECKeyPair keyPair) {
         byte[] hash = hash();
-        signature = EthUtil.sign(keyPair, hash);
+        signature = CryptoUtil.sign(keyPair, hash);
     }
 
     public void verifySignature(Predicate<Address> addressPredicate) throws SignatureException {
-        Address address = EthUtil.verifySignature(signature, hash());
+        Address address = CryptoUtil.verifySignature(signature, hash());
         if (!addressPredicate.test(address)) {
             throw new SignatureException("Invalid signature address: " + address);
         }

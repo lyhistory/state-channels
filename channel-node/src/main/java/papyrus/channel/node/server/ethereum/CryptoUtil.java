@@ -3,9 +3,33 @@ package papyrus.channel.node.server.ethereum;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.SignatureException;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Date;
 
+import javax.security.auth.x500.X500Principal;
+
+import org.apache.commons.lang3.time.DateUtils;
+import org.bouncycastle.asn1.x9.X9ECParameters;
+import org.bouncycastle.crypto.params.ECDomainParameters;
+import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
+import org.bouncycastle.crypto.params.ECPublicKeyParameters;
+import org.bouncycastle.jcajce.provider.asymmetric.ec.BCECPrivateKey;
+import org.bouncycastle.jcajce.provider.asymmetric.ec.BCECPublicKey;
+import org.bouncycastle.jcajce.provider.asymmetric.util.EC5Util;
+import org.bouncycastle.jcajce.provider.asymmetric.util.ECUtil;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.jce.spec.ECNamedCurveSpec;
+import org.bouncycastle.math.ec.ECCurve;
+import org.bouncycastle.math.ec.ECPoint;
+import org.bouncycastle.x509.X509V1CertificateGenerator;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Uint;
 import org.web3j.crypto.ECKeyPair;
@@ -22,9 +46,26 @@ import org.web3j.utils.Numeric;
 
 import com.google.common.base.Preconditions;
 
-public class EthUtil {
-    public static final BigInteger MASK_256 = BigInteger.ONE.shiftLeft(256).subtract(BigInteger.ONE);
+public class CryptoUtil {
+    private static final BigInteger MASK_256 = BigInteger.ONE.shiftLeft(256).subtract(BigInteger.ONE);
+    private static final String ALGORITHM = "ECDSA";
+    private static final String CURVE_NAME = "secp256k1";
     
+    private static final ECDomainParameters dp;
+    private static final ECCurve curve;
+
+    private static final ECNamedCurveSpec p;
+
+    static {
+        X9ECParameters xp = ECUtil.getNamedCurveByName(CURVE_NAME);
+        p = new ECNamedCurveSpec(CURVE_NAME, xp.getCurve(), xp.getG(), xp.getN(), xp.getH(), null);
+        curve = EC5Util.convertCurve(p.getCurve());
+        org.bouncycastle.math.ec.ECPoint g = EC5Util.convertPoint(curve, p.getGenerator(), false);
+        BigInteger n = p.getOrder();
+        BigInteger h = BigInteger.valueOf(p.getCofactor());
+        dp = new ECDomainParameters(curve, g, n, h);
+    }
+
     public static String getContractAddress(String fromAddress, long nonce) {
         byte[] bytes = RlpEncoder.encode(new RlpList(RlpString.create(Numeric.hexStringToByteArray(Numeric.cleanHexPrefix(fromAddress))), RlpString.create(nonce)));
         byte[] sha3 = Hash.sha3(bytes);
@@ -108,5 +149,41 @@ public class EthUtil {
         byte[] array = buffer.array();
         assert buffer.position() == array.length;
         return Hash.sha3(array);
+    }
+
+    public static KeyPair decodeKeyPair(ECKeyPair ecKeyPair) {
+        byte[] bytes = Numeric.toBytesPadded(ecKeyPair.getPublicKey(), 64);
+        BigInteger x = Numeric.toBigInt(Arrays.copyOfRange(bytes, 0, 32));
+        BigInteger y = Numeric.toBigInt(Arrays.copyOfRange(bytes, 32, 64));
+        ECPoint q = curve.createPoint(x, y);
+        BCECPublicKey publicKey = new BCECPublicKey(ALGORITHM, new ECPublicKeyParameters(q, dp), BouncyCastleProvider.CONFIGURATION);
+        BCECPrivateKey privateKey = new BCECPrivateKey(ALGORITHM, new ECPrivateKeyParameters(ecKeyPair.getPrivateKey(), dp), publicKey, p, BouncyCastleProvider.CONFIGURATION);
+        return new KeyPair(publicKey, privateKey);
+    }
+
+    public static void main(String[] args) throws InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException {
+        ECKeyPair ecKeyPair = Keys.createEcKeyPair();
+        KeyPair keyPair1 = decodeKeyPair(ecKeyPair);
+        System.out.println(toString(keyPair1));
+    }
+
+    public static String toString(KeyPair keyPair) {
+        return keyPair.getPrivate() + ":" + keyPair.getPublic();
+    }
+    
+    public static X509Certificate genCert(KeyPair keyPair) throws NoSuchAlgorithmException, CertificateEncodingException, NoSuchProviderException, InvalidKeyException, SignatureException {
+        Date startDate = new Date();              // time from which certificate is valid
+        Date expiryDate = new Date(System.currentTimeMillis() + DateUtils.MILLIS_PER_DAY * 365);             // time after which certificate is not valid
+        BigInteger serialNumber = BigInteger.ONE;     // serial number for certificate
+        X509V1CertificateGenerator certGen = new X509V1CertificateGenerator();
+        X500Principal dnName = new X500Principal("CN=Test CA Certificate");
+        certGen.setSerialNumber(serialNumber);
+        certGen.setIssuerDN(dnName);
+        certGen.setNotBefore(startDate);
+        certGen.setNotAfter(expiryDate);
+        certGen.setSubjectDN(dnName);                       // note: same as issuer
+        certGen.setPublicKey(keyPair.getPublic());
+        certGen.setSignatureAlgorithm("SHA256WITHECDSA");
+        return certGen.generate(keyPair.getPrivate(), "BC");    
     }
 }

@@ -6,7 +6,7 @@ import org.web3j.abi.datatypes.Address;
 import org.web3j.utils.Numeric;
 
 import papyrus.channel.node.TransferMessage;
-import papyrus.channel.node.server.ethereum.EthUtil;
+import papyrus.channel.node.server.ethereum.CryptoUtil;
 import papyrus.channel.node.server.ethereum.SignedObject;
 
 public class SignedTransfer extends SignedObject {
@@ -52,6 +52,6 @@ public class SignedTransfer extends SignedObject {
 
     @Override
     protected byte[] hash() {
-        return EthUtil.soliditySha3(transferId, channelAddress, value);
+        return CryptoUtil.soliditySha3(transferId, channelAddress, value);
     }
 }

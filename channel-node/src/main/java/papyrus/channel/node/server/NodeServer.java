@@ -32,7 +32,16 @@
 package papyrus.channel.node.server;
 
 import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SignatureException;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateParsingException;
 import java.util.List;
+
+import javax.net.ssl.SSLException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,18 +51,21 @@ import org.springframework.context.event.ContextStoppedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.web3j.abi.datatypes.Address;
-import org.web3j.crypto.Credentials;
+import org.web3j.crypto.ECKeyPair;
 
 import io.grpc.BindableService;
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
+import io.grpc.netty.GrpcSslContexts;
+import io.grpc.netty.NettyServerBuilder;
+import io.netty.handler.ssl.OpenSsl;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.internal.tcnative.Library;
+import io.netty.internal.tcnative.SSL;
+import io.netty.util.internal.NativeLibraryLoader;
 import papyrus.channel.node.config.ChannelServerProperties;
 import papyrus.channel.node.config.EthereumConfig;
-import papyrus.channel.node.server.admin.ChannelAdminImpl;
-import papyrus.channel.node.server.channel.ChannelPeerImpl;
-import papyrus.channel.node.server.channel.incoming.IncomingChannelClientImpl;
-import papyrus.channel.node.server.channel.outgoing.OutgoingChannelClientImpl;
 import papyrus.channel.node.server.ethereum.ContractsManager;
+import papyrus.channel.node.server.ethereum.CryptoUtil;
 import papyrus.channel.node.server.peer.EndpointRegistry;
 
 @Service
@@ -74,10 +86,13 @@ public class NodeServer {
     }
 
     @EventListener(ContextStartedEvent.class)
-    public void start() {
+    public void start() throws Exception {
         int port = properties.getPort();
-        ServerBuilder<?> builder = ServerBuilder.forPort(port);
+        NettyServerBuilder builder = NettyServerBuilder.forPort(port);
         bindableServices.forEach(builder::addService);
+        if (properties.isSecure()) {
+            configureSsl(builder);
+        }
         grpcServer = builder.build();
 
         try {
@@ -98,6 +113,22 @@ public class NodeServer {
                 registry.registerEndpoint(address, endpointUrl);
             }
         }
+    }
+
+    private void configureSsl(NettyServerBuilder builder) throws NoSuchAlgorithmException, CertificateEncodingException, NoSuchProviderException, InvalidKeyException, SignatureException, SSLException {
+        NativeLibraryLoader.loadFirstAvailable(ClassLoader.getSystemClassLoader(),
+            "netty_tcnative_osx_x86_64",
+            "netty_tcnative_linux_x86_64",
+            "netty_tcnative_windows_x86_64"
+        );
+        ECKeyPair ecKeyPair = ethereumConfig.getMainCredentials().getEcKeyPair();
+        KeyPair keyPair = CryptoUtil.decodeKeyPair(ecKeyPair);
+        SslContextBuilder contextBuilder = SslContextBuilder.forServer(
+            keyPair.getPrivate(),
+            CryptoUtil.genCert(keyPair)
+        );
+
+        builder.sslContext(GrpcSslContexts.configure(contextBuilder).build());
     }
 
     @EventListener(ContextStoppedEvent.class)

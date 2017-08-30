@@ -58,6 +58,7 @@ dependencies {
     compile "io.grpc:grpc-netty:${v.grpc}"
     compile "io.grpc:grpc-protobuf:${v.grpc}"
     compile "io.grpc:grpc-stub:${v.grpc}"
+    compile 'io.netty:netty-tcnative-boringssl-static:2.0.6.Final'
 
 //    Libraries
     compile "com.fasterxml.jackson.core:jackson-annotations:2.9.0"

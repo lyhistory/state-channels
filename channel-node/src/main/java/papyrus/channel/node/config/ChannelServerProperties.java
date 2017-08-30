@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("channel.server")
 public class ChannelServerProperties {
     private int port;
+    private boolean secure;
     private String endpointUrl;
 
     public int getPort() {
@@ -13,6 +14,14 @@ public class ChannelServerProperties {
 
     public void setPort(int port) {
         this.port = port;
+    }
+
+    public boolean isSecure() {
+        return secure;
+    }
+
+    public void setSecure(boolean secure) {
+        this.secure = secure;
     }
 
     public String getEndpointUrl() {
