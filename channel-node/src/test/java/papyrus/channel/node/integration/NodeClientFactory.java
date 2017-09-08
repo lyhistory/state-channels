@@ -1,4 +1,4 @@
-package papyrus.channel.node;
+package papyrus.channel.node.integration;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -9,6 +9,9 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import io.grpc.ManagedChannel;
+import papyrus.channel.node.ChannelAdminGrpc;
+import papyrus.channel.node.IncomingChannelClientGrpc;
+import papyrus.channel.node.OutgoingChannelClientGrpc;
 import papyrus.channel.node.config.ChannelServerProperties;
 import papyrus.channel.node.server.peer.PeerConnection;
 import papyrus.channel.protocol.ChannelPeerGrpc;

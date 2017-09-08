@@ -4,8 +4,6 @@ import java.security.SignatureException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.web3j.abi.datatypes.Address;
 
@@ -15,8 +13,7 @@ import papyrus.channel.node.server.channel.SignedTransfer;
 
 @Service
 public class IncomingChannelManagers {
-    private static final Logger log = LoggerFactory.getLogger(IncomingChannelManagers.class);
-    
+
     private Map<Address, IncomingChannelManager> managers = new ConcurrentHashMap<>();
     private final EthereumConfig config;
     private IncomingChannelRegistry registry;
@@ -37,7 +34,10 @@ public class IncomingChannelManagers {
     }
 
     public void registerTransfer(SignedTransfer signedTransfer) {
-        registry.get(signedTransfer.getChannelAddress()).ifPresent(st -> st.registerTransfer(signedTransfer));
+        IncomingChannelState state = registry.get(signedTransfer.getChannelAddress()).orElseThrow(() -> new IllegalArgumentException("Channel not found: " + signedTransfer.getChannelAddress()));
+        if (!state.registerTransfer(signedTransfer)) {
+            throw new IllegalArgumentException();
+        }
     }
 
     public boolean requestCloseChannel(Address address) {
@@ -45,7 +45,6 @@ public class IncomingChannelManagers {
     }
 
     public IncomingChannelState load(Address address) {
-        log.info("Registering channel: {}", address);
         IncomingChannelState state = registry.getOrLoad(address);
         if (state != null) {
             return getOrCreateManager(state.getReceiverAddress()).putChannel(state);

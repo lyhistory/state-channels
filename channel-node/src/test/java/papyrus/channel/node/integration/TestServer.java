@@ -1,4 +1,4 @@
-package papyrus.channel.node;
+package papyrus.channel.node.integration;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -23,6 +23,12 @@ import com.google.common.base.Throwables;
 
 import papyrus.channel.ChannelPropertiesMessage;
 import papyrus.channel.Error;
+import papyrus.channel.node.AddChannelPoolRequest;
+import papyrus.channel.node.ChannelNodeApplication;
+import papyrus.channel.node.ChannelStatusRequest;
+import papyrus.channel.node.ChannelStatusResponse;
+import papyrus.channel.node.RegisterTransfersRequest;
+import papyrus.channel.node.RemoveChannelPoolRequest;
 import papyrus.channel.node.config.EthProperties;
 import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.PapyrusToken;
@@ -31,6 +37,17 @@ import papyrus.channel.node.server.channel.incoming.IncomingChannelManagers;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelState;
 import papyrus.channel.node.server.peer.PeerConnection;
 
+/**
+ * Before test run:
+ * <br>
+ * <code>
+ *     testrpc -b 1 --seed 5ee1d
+ * </code>
+ * And 
+ * <code>
+ *     truffle migrate --reset
+ * </code>
+ */
 public class TestServer {
 
     private static final String PROFILES = "test,testrpc";
@@ -127,30 +144,35 @@ public class TestServer {
 
         assertBalance(deposit, senderStartBalance.subtract(token.balanceOf(senderAddress).get().getValue()));
 
-        BigInteger transferred = Convert.toWei("0.001", Convert.Unit.ETHER).toBigIntegerExact();
+        BigInteger transferSum = Convert.toWei("0.001", Convert.Unit.ETHER).toBigIntegerExact();
 
-        SignedTransfer transfer = new SignedTransfer("1", channelAddress, transferred.toString());
-        transfer.sign(signerCredentials.getEcKeyPair());
-        
+        SignedTransfer transfer = sendTransfer("1", channelAddress, channelState, transferSum);
+
+        //check for double sending
         assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
             .addTransfer(transfer.toMessage())
             .build()
         ).getError());
 
-        waitFor(() -> channelState.getReceiverState() != null && channelState.getReceiverState().getCompletedTransfers().signum() > 0);
+        Thread.sleep(100);
 
-        Assert.assertEquals(transferred, channelState.getReceiverState().getCompletedTransfers());
+        Assert.assertEquals(transferSum, channelState.getReceiverState().getCompletedTransfers());
+
+        BigInteger transferSum2 = Convert.toWei("0.002", Convert.Unit.ETHER).toBigIntegerExact();
+        SignedTransfer transfer2 = sendTransfer("2", channelAddress, channelState, transferSum2);
 
         assertNoError(receiverClient.getIncomingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
             .addTransfer(transfer.toMessage())
+            .addTransfer(transfer2.toMessage())
             .build()
         ).getError());
 
         waitFor(() -> channelState.getOwnState().getCompletedTransfers().signum() > 0);
 
-        Assert.assertEquals(transferred, channelState.getOwnState().getCompletedTransfers());
+        BigInteger expectedTotalTransfer = transferSum.add(transferSum2);
+        Assert.assertEquals(expectedTotalTransfer, channelState.getOwnState().getCompletedTransfers());
         Assert.assertTrue(channelState.getReceiverState() != null);
-        Assert.assertEquals(transferred, channelState.getReceiverState().getCompletedTransfers());
+        Assert.assertEquals(expectedTotalTransfer, channelState.getReceiverState().getCompletedTransfers());
         
         
         assertNoError(
@@ -171,8 +193,24 @@ public class TestServer {
         });
         
         //must be settled
-        assertBalance(transferred, senderStartBalance.subtract(token.balanceOf(senderAddress).get().getValue()));
-        assertBalance(transferred, token.balanceOf(receiverAddress).get().getValue().subtract(receiverStartBalance));
+        assertBalance(expectedTotalTransfer, senderStartBalance.subtract(token.balanceOf(senderAddress).get().getValue()));
+        assertBalance(expectedTotalTransfer, token.balanceOf(receiverAddress).get().getValue().subtract(receiverStartBalance));
+    }
+
+    private SignedTransfer sendTransfer(String transferId, String channelAddress, IncomingChannelState channelState, BigInteger transferred) throws InterruptedException {
+        BigInteger completedTransfers = channelState.getReceiverState() != null ? channelState.getReceiverState().getCompletedTransfers() : BigInteger.ZERO;
+        SignedTransfer transfer = new SignedTransfer(transferId, channelAddress, transferred.toString());
+        transfer.sign(signerCredentials.getEcKeyPair());
+
+        assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
+            .addTransfer(transfer.toMessage())
+            .build()
+        ).getError());
+
+        waitFor(() -> channelState.getReceiverState() != null && channelState.getReceiverState().getCompletedTransfers().compareTo(completedTransfers) > 0);
+
+        Assert.assertEquals(completedTransfers.add(transferred), channelState.getReceiverState().getCompletedTransfers());
+        return transfer;
     }
 
     private <T> T waitFor(Supplier<T> supplier, Predicate<T> condition) throws InterruptedException {

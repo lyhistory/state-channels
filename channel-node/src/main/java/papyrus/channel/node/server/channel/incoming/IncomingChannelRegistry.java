@@ -38,7 +38,6 @@ public class IncomingChannelRegistry {
     }
 
     public IncomingChannelState getOrLoad(Address address) {
-        log.info("Registering channel: {}", address);
         try {
             return allChannelsByAddress.computeIfAbsent(address, this::loadChannel);
         } catch (Exception e) {

@@ -28,12 +28,12 @@ public class Test {
 
 //        String contractAddress;
 //        LinkingTransactionManager linkingManager = new LinkingTransactionManager(web3j, testCredentials);
-//        ECRecovery ecRecovery = ECRecovery.deploy(web3j, linkingManager, TestUtil.GAS_PRICE, TestUtil.GAS_LIMIT, BigInteger.ZERO).get();
+//        ECRecovery ecRecovery = ECRecovery.deploy(web3j, linkingManager, TestCryptoUtil.GAS_PRICE, TestCryptoUtil.GAS_LIMIT, BigInteger.ZERO).get();
 //        Assert.assertTrue(ecRecovery.isValid());
 //        linkingManager.provide("ECRecovery", ecRecovery);
         
 /*
-        TestContract contract = TestContract.deploy(web3j, manager, TestUtil.GAS_PRICE, TestUtil.GAS_LIMIT, BigInteger.ZERO,
+        TestContract contract = TestContract.deploy(web3j, manager, TestCryptoUtil.GAS_PRICE, TestCryptoUtil.GAS_LIMIT, BigInteger.ZERO,
             new Uint256(12345)
         ).get();
         contractAddress = contract.getContractAddress();
@@ -42,7 +42,7 @@ public class Test {
 
         contractAddress = "0x9d7b7d077f234fb6449036f213420ca60bb713c8";
 
-        contract = TestContract.load(contractAddress, web3j, testCredentials, TestUtil.GAS_PRICE, TestUtil.GAS_LIMIT);
+        contract = TestContract.load(contractAddress, web3j, testCredentials, TestCryptoUtil.GAS_PRICE, TestCryptoUtil.GAS_LIMIT);
         Uint256 uint256 = contract.getValue().get();
         Assert.assertEquals(new Uint256(12345), uint256);
 
