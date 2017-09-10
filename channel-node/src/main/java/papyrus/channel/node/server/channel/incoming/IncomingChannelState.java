@@ -48,7 +48,7 @@ public class IncomingChannelState {
     
     public synchronized boolean registerTransfer(SignedTransfer transfer) {
         try {
-            transfer.verifySignature(channel.getsignerAddress()::equals);
+            transfer.verifySignature(channel.getclientAddress()::equals);
             boolean registered = transfers.putIfAbsent(transfer.getTransferId(), transfer) == null;
             if (registered) {
                 ownState.setCompletedTransfers(ownState.getCompletedTransfers().add(transfer.getValue()));

@@ -9,15 +9,15 @@ public class EthKeyProperties {
     private String keyLocation;
     private String keyPassword;
     /**
-     * Address for signer transfers. If not specified main address is used.
+     * Address for client transfers. If not specified main address is used.
      */
-    private Address signerAddress;
+    private Address clientAddress;
     
     /*
      * !!! NEXT CONFIGS ARE FOR TESTS ONLY !!!
      */
     
-    private String signerPrivateKey;
+    private String clientPrivateKey;
     private String privateKey;
     //automatically add some ethers to address
     private BigDecimal autoRefill = BigDecimal.ZERO;
@@ -54,19 +54,19 @@ public class EthKeyProperties {
         this.autoRefill = autoRefill;
     }
 
-    public Address getSignerAddress() {
-        return signerAddress;
+    public Address getClientAddress() {
+        return clientAddress;
     }
 
-    public void setSignerAddress(Address signerAddress) {
-        this.signerAddress = signerAddress;
+    public void setClientAddress(Address clientAddress) {
+        this.clientAddress = clientAddress;
     }
 
-    public String getSignerPrivateKey() {
-        return signerPrivateKey;
+    public String getClientPrivateKey() {
+        return clientPrivateKey;
     }
 
-    public void setSignerPrivateKey(String signerPrivateKey) {
-        this.signerPrivateKey = signerPrivateKey;
+    public void setClientPrivateKey(String clientPrivateKey) {
+        this.clientPrivateKey = clientPrivateKey;
     }
 }

@@ -3,8 +3,8 @@ eth:
     -
       #account: 0xb508d41ecb22e9b9bb85c15b5fb3a90cdaddc4ea
       private-key: 26e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
-      signer-address: 0x327d868ec4c7bd18b7e7d776c41e251d42d2590c
-      signer-private-key: 5c714cb0bb20b7b2960e3dd99a5e11a984441aa3a9f55497dc2eb5a8fa88a25d
+      client-address: 0x327d868ec4c7bd18b7e7d776c41e251d42d2590c
+      client-private-key: 5c714cb0bb20b7b2960e3dd99a5e11a984441aa3a9f55497dc2eb5a8fa88a25d
       auto-refill: 0.1
 channel:
   server:

@@ -20,7 +20,7 @@ contract ChannelContract {
     function ChannelContract(
         address manager_address,
         address sender,
-        address signer,
+        address client,
         address receiver,
         uint timeout)
         settleTimeoutNotTooLow(timeout)
@@ -28,10 +28,10 @@ contract ChannelContract {
         //allow creation only from manager contract
         require(msg.sender == manager_address);
         require (sender != receiver);
-        require (signer != receiver);
+        require (client != receiver);
 
         data.sender = sender;
-        data.signer = signer;
+        data.client = client;
         data.receiver = receiver;
         data.manager = ChannelManagerContract(manager_address);
         data.settle_timeout = timeout;
@@ -107,7 +107,7 @@ contract ChannelContract {
             data.settled,
             data.manager,
             data.sender,
-            data.signer,
+            data.client,
             data.receiver,
             data.balance,
             data.nonce,

@@ -74,7 +74,7 @@ public class OutgoingChannelPoolManager {
                     ethereumConfig.getContractManager(sender),
                     peerConnectionManager,
                     ethereumConfig.getCredentials(sender),
-                    ethereumConfig.getSignerAddress(sender), 
+                    ethereumConfig.getClientAddress(sender), 
                     receiver
                 );
                 channelPool.start();
@@ -106,7 +106,7 @@ public class OutgoingChannelPoolManager {
         OutgoingChannelState channelState = registry.get(signedTransfer.getChannelAddress()).orElseThrow(
             () -> new IllegalStateException("Unknown channel address: " + signedTransfer.getChannelAddress())
         );
-        signedTransfer.verifySignature(channelState.getChannel().getSignerAddress()::equals);
+        signedTransfer.verifySignature(channelState.getChannel().getClientAddress()::equals);
         channelState.registerTransfer(signedTransfer);
     }
 

@@ -114,10 +114,10 @@ public class EthereumConfig {
         return properties.getRpc();
     }
 
-    public Address getSignerAddress(Address address) {
+    public Address getClientAddress(Address address) {
         checkAddress(address);
         EthKeyProperties ethKeyProperties = keyProperties.get(address);
-        return ethKeyProperties == null ? null : ethKeyProperties.getSignerAddress() == null ? address : ethKeyProperties.getSignerAddress();
+        return ethKeyProperties == null ? null : ethKeyProperties.getClientAddress() == null ? address : ethKeyProperties.getClientAddress();
     }
 
     public Credentials getCredentials(Address address) {

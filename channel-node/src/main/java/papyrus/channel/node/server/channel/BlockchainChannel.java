@@ -16,7 +16,7 @@ import papyrus.channel.node.entity.ChannelProperties;
 
 public class BlockchainChannel {
     private final Address senderAddress;
-    private final Address signerAddress;
+    private final Address clientAddress;
     private final Address receiverAddress;
     private BigInteger balance = BigInteger.ZERO;
     private ChannelProperties properties;
@@ -30,13 +30,13 @@ public class BlockchainChannel {
 
     ChannelContract contract;
 
-    public BlockchainChannel(Address senderAddress, Address signerAddress, Address receiverAddress) {
+    public BlockchainChannel(Address senderAddress, Address clientAddress, Address receiverAddress) {
         Preconditions.checkNotNull(senderAddress);
-        Preconditions.checkNotNull(signerAddress);
+        Preconditions.checkNotNull(clientAddress);
         Preconditions.checkNotNull(receiverAddress);
         
         this.senderAddress = senderAddress;
-        this.signerAddress = signerAddress;
+        this.clientAddress = clientAddress;
         this.receiverAddress = receiverAddress;
     }
 
@@ -64,9 +64,9 @@ public class BlockchainChannel {
 //            address sender,
         senderAddress = address(st.get(i++));
         Preconditions.checkState(senderAddress != null);
-//            address signer,
-        signerAddress = address(st.get(i++));
-        Preconditions.checkState(signerAddress != null);
+//            address client,
+        clientAddress = address(st.get(i++));
+        Preconditions.checkState(clientAddress != null);
 //            address receiver,
         receiverAddress = address(st.get(i++));
         Preconditions.checkState(receiverAddress != null);
@@ -96,8 +96,8 @@ public class BlockchainChannel {
         return receiverAddress;
     }
 
-    public Address getSignerAddress() {
-        return signerAddress;
+    public Address getClientAddress() {
+        return clientAddress;
     }
 
     public Address getChannelAddress() {
@@ -193,7 +193,7 @@ public class BlockchainChannel {
         }
     }
 
-    public Address getsignerAddress() {
-        return signerAddress;
+    public Address getclientAddress() {
+        return clientAddress;
     }
 }

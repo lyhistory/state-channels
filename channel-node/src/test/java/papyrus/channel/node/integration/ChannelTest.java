@@ -58,7 +58,7 @@ public class ChannelTest {
     private ConfigurableApplicationContext receiver;
     private PeerConnection senderClient;
     private PeerConnection receiverClient;
-    private Credentials signerCredentials;
+    private Credentials clientCredentials;
     private PapyrusToken token;
     private Credentials senderCredentials;
     private Credentials receiverCredentials;
@@ -70,7 +70,7 @@ public class ChannelTest {
         sender.start();
         receiver.start();
         senderClient = sender.getBean(PeerConnection.class);
-        signerCredentials = Credentials.create(sender.getBean(EthProperties.class).getKeys().get(0).getSignerPrivateKey());
+        clientCredentials = Credentials.create(sender.getBean(EthProperties.class).getKeys().get(0).getClientPrivateKey());
         senderCredentials = sender.getBean(EthereumConfig.class).getMainCredentials();
         receiverCredentials = receiver.getBean(EthereumConfig.class).getMainCredentials();
         Assert.assertNotNull(senderClient);
@@ -201,7 +201,7 @@ public class ChannelTest {
     private SignedTransfer sendTransfer(String transferId, String channelAddress, IncomingChannelState channelState, BigInteger transferred) throws InterruptedException {
         BigInteger completedTransfers = channelState.getReceiverState() != null ? channelState.getReceiverState().getCompletedTransfers() : BigInteger.ZERO;
         SignedTransfer transfer = new SignedTransfer(transferId, channelAddress, transferred.toString());
-        transfer.sign(signerCredentials.getEcKeyPair());
+        transfer.sign(clientCredentials.getEcKeyPair());
 
         assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
             .addTransfer(transfer.toMessage())

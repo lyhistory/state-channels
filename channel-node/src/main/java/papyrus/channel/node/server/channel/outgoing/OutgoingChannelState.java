@@ -39,8 +39,8 @@ public class OutgoingChannelState {
 
     private StateTransition transition;
 
-    public OutgoingChannelState(Address senderAddress, Address signerAddress, Address receiverAddress, ChannelProperties properties) {
-        channel = new BlockchainChannel(senderAddress, signerAddress, receiverAddress);
+    public OutgoingChannelState(Address senderAddress, Address clientAddress, Address receiverAddress, ChannelProperties properties) {
+        channel = new BlockchainChannel(senderAddress, clientAddress, receiverAddress);
         channel.setProperties(properties);
         setStatus(Status.NEW);
     }

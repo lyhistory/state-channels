@@ -46,7 +46,7 @@ public class OutgoingChannelPool {
     private final TokenService tokenService;
     private final PeerConnectionManager peerConnectionManager;
     private final Address senderAddress;
-    private final Address signerAddress;
+    private final Address clientAddress;
     private final Thread watchThread;
 
     private final Credentials credentials;
@@ -62,7 +62,7 @@ public class OutgoingChannelPool {
         ContractsManager contractsManager,
         PeerConnectionManager peerConnectionManager,
         Credentials senderCredentials,
-        Address signerAddress,
+        Address clientAddress,
         Address receiverAddress
     ) {
         this.registry = registry;
@@ -71,7 +71,7 @@ public class OutgoingChannelPool {
         this.peerConnectionManager = peerConnectionManager;
         this.credentials = senderCredentials;
         this.senderAddress = new Address(senderCredentials.getAddress());
-        this.signerAddress = signerAddress;
+        this.clientAddress = clientAddress;
         this.receiverAddress = receiverAddress;
         this.channelProperties = channelProperties;
         this.contractsManager = contractsManager;
@@ -92,7 +92,7 @@ public class OutgoingChannelPool {
                 boolean updated = false;
                 long notClosedOrClosing = channels.stream().filter(c -> !c.isClosed()).count();
                 if (!shutdown && notClosedOrClosing < channelProperties.getMinActiveChannels()) {
-                    channels.add(new OutgoingChannelState(senderAddress, signerAddress, receiverAddress, channelProperties.getBlockchainProperties()));
+                    channels.add(new OutgoingChannelState(senderAddress, clientAddress, receiverAddress, channelProperties.getBlockchainProperties()));
                 }
                 long active = channels.stream().filter(OutgoingChannelState::isActive).count();
                 if (active > channelProperties.getMaxActiveChannels()) {
@@ -204,7 +204,7 @@ public class OutgoingChannelPool {
 
     private void startCreating(OutgoingChannelState channel) {
         Future<TransactionReceipt> future = contractsManager.channelManager().newChannel(
-            signerAddress, 
+            clientAddress, 
             receiverAddress, 
             new Uint256(channelProperties.getBlockchainProperties().getSettleTimeout())
         );

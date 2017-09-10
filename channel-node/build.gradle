@@ -18,6 +18,8 @@ buildscript {
         // ASSUMES GRADLE 2.12 OR HIGHER. Use plugin version 0.7.5 with earlier
         // gradle versions
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.3'
+        classpath 'com.bmuschko:gradle-docker-plugin:3.1.0'
+        classpath  group: 'com.github.docker-java', name: 'docker-java', version: '3.0.13'
     }
 }
 
@@ -115,6 +117,61 @@ idea {
 
 task cleanProto(type:Delete) {
     delete 'build/generated/source/proto'  
+}
+
+apply plugin: 'com.bmuschko.docker-remote-api'
+
+import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
+
+task dockerfile {
+    dependsOn jar
+    doLast {
+        def dockerBase = 'build/docker/server'
+        mkdir "$dockerBase"
+        copy {
+            into "$dockerBase"
+            from('src/main/docker') {
+                include '**/*'
+            }
+        }
+        copy {
+            into "$dockerBase/jars"
+            from('build/libs') {
+                include '*.jar'
+            }
+            rename { String fileName ->
+                fileName.replace("-$version", '')
+            }
+        }
+        //hack: prepend each dependency jar with its group name
+        //it's required because some guys (from google) made jars with same name in different groups
+        configurations.compile.files.each { file ->
+            copy {
+                into "$dockerBase/files/bin/libs"
+                from file
+                exclude '*blitz*'
+                rename { String name ->
+                    "${file.parentFile.parentFile.parentFile.parentFile.name}.${name}"
+                }
+            }
+            copy {
+                into "$dockerBase/files/bin/libs"
+                from file
+                include '*blitz*'
+            }
+        }
+    }
+}
+
+def dockerTag = "eu.gcr.io/papyrus-global/channel-node:0.1"
+
+task dockerImage(type: DockerBuildImage, dependsOn: dockerfile) {
+    doFirst {
+        println "Building image: ${dockerTag}"
+    }
+    inputDir = project.file('build/docker/server')
+    //TAG does not work
+    tag = dockerTag
 }
 
 test {

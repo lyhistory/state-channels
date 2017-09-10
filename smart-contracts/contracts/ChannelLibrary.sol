@@ -17,7 +17,7 @@ library ChannelLibrary {
     
         address sender;
         address receiver;
-        address signer;
+        address client;
         uint balance;
 
         //state update for close
@@ -202,7 +202,7 @@ library ChannelLibrary {
         );
 
         address sign_address = ECRecovery.recover(signed_hash, signature);
-        require(sign_address == self.signer);
+        require(sign_address == self.client);
     }
 
     function hashTransfer(
