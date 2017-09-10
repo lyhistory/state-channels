@@ -9,14 +9,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.WalletUtils;
 import org.web3j.protocol.Web3j;
-import org.web3j.protocol.http.HttpService;
 import org.web3j.tx.TransactionManager;
 
 import com.google.common.base.Preconditions;
@@ -34,17 +32,14 @@ public class EthereumConfig {
     private final Map<Address, Credentials> credentialsMap;
     private final Map<Address, ContractsManager> managerMap;
     private final Credentials mainCredentials;
-    private final Web3j web3j;
 
     @Autowired
-    public EthereumConfig(EthProperties properties, ContractsProperties contractsProperties) throws IOException, CipherException {
+    public EthereumConfig(EthProperties properties, ContractsProperties contractsProperties, Web3j web3j) throws IOException, CipherException {
         this.properties = properties;
         keyProperties = new HashMap<>();
         credentialsMap = new HashMap<>();
         managerMap = new HashMap<>();
 
-        web3j = Web3j.build(new HttpService(this.properties.getRpc().getNodeUrl()));
-        
         Credentials mainCred = null;
         for (EthKeyProperties key : properties.getKeys()) {
             Credentials credentials = loadCredentials(key);
@@ -123,11 +118,6 @@ public class EthereumConfig {
         checkAddress(address);
         EthKeyProperties ethKeyProperties = keyProperties.get(address);
         return ethKeyProperties == null ? null : ethKeyProperties.getSignerAddress() == null ? address : ethKeyProperties.getSignerAddress();
-    }
-
-    @Bean
-    public Web3j getWeb3j() {
-        return web3j;
     }
 
     public Credentials getCredentials(Address address) {

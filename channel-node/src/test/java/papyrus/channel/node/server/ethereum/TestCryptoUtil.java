@@ -4,6 +4,8 @@ import java.math.BigInteger;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.web3j.abi.datatypes.Address;
+import org.web3j.crypto.Hash;
 import org.web3j.utils.Numeric;
 
 public class TestCryptoUtil {
@@ -25,6 +27,19 @@ public class TestCryptoUtil {
         Assert.assertEquals(
             "0x26700e13983fefbd9cf16da2ed70fa5c6798ac55062a4803121a869731e308d2",
             Numeric.toHexString(CryptoUtil.soliditySha3(BigInteger.valueOf(100)))
+        );
+        Assert.assertEquals(
+            "0x26700e13983fefbd9cf16da2ed70fa5c6798ac55062a4803121a869731e308d2",
+            Numeric.toHexString(CryptoUtil.soliditySha3(BigInteger.valueOf(100)))
+        );
+        Address address = new Address("abcdef");
+        Assert.assertEquals(
+            Numeric.toHexStringNoPrefixZeroPadded(address.getValue(), 40),
+            Numeric.toHexStringNoPrefix(Numeric.toBytesPadded(address.getValue(), 20))
+        );
+        Assert.assertEquals(
+            Hash.sha3(Numeric.toHexStringNoPrefixZeroPadded(address.getValue(), 40)),
+            Numeric.toHexString(CryptoUtil.soliditySha3(address))
         );
     }
 

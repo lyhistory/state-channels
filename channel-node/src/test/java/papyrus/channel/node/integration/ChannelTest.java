@@ -47,8 +47,9 @@ import papyrus.channel.node.server.peer.PeerConnection;
  * <code>
  *     truffle migrate --reset
  * </code>
+ * the copy contract addresses to application-testrpc.yaml
  */
-public class TestServer {
+public class ChannelTest {
 
     private static final String PROFILES = "test,testrpc";
     public static final long MAX_WAIT = 60000L;

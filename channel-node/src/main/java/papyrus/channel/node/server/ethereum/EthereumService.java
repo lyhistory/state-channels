@@ -31,17 +31,17 @@ public class EthereumService {
     private long blockNumber;
     private long blockNumberUpdated;
 
-    public EthereumService(EthereumConfig config) throws IOException, ExecutionException, InterruptedException {
+    public EthereumService(EthereumConfig config, Web3j web3j) throws IOException, ExecutionException, InterruptedException {
         this.config = config;
 
-        web3j = config.getWeb3j();
+        this.web3j = web3j;
     }
 
     @PostConstruct
     public void init() throws IOException, InterruptedException, ExecutionException {
         while (!Thread.interrupted()) {
             try {
-                netVersion = config.getWeb3j().netVersion().send().getNetVersion();
+                netVersion = web3j.netVersion().send().getNetVersion();
                 for (Address address : config.getAddresses()) {
                     BigDecimal autoRefill = config.getKeyProperties(address).getAutoRefill();
 
@@ -50,6 +50,7 @@ public class EthereumService {
                         BigDecimal balance = getBalance(nodeAddress, Convert.Unit.ETHER);
                         if (balance.compareTo(autoRefill) < 0) {
                             String coinbase = web3j.ethCoinbase().send().getAddress();
+                            
                             log.info("Refill {} ETH from {} to {}", autoRefill, coinbase, nodeAddress);
                             new Transfer(web3j, new ClientTransactionManager(web3j, coinbase, 100, 1000)).sendFundsAsync(nodeAddress, autoRefill, Convert.Unit.ETHER).get();
                         }
@@ -71,7 +72,7 @@ public class EthereumService {
 
     public BigDecimal getBalance(String nodeAddress, Convert.Unit unit) {
         try {
-            BigInteger balance = config.getWeb3j().ethGetBalance(nodeAddress, DefaultBlockParameterName.LATEST).send().getBalance();
+            BigInteger balance = web3j.ethGetBalance(nodeAddress, DefaultBlockParameterName.LATEST).send().getBalance();
             return Convert.fromWei(new BigDecimal(balance), unit);
         } catch (IOException e) {
             throw Throwables.propagate(e);

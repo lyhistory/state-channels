@@ -3,6 +3,7 @@ package papyrus.channel.node.server.channel;
 import java.math.BigInteger;
 
 import org.web3j.abi.datatypes.Address;
+import org.web3j.abi.datatypes.generated.Uint256;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.ByteString;
@@ -62,6 +63,6 @@ public class SignedChannelState extends SignedObject {
     }
 
     public byte[] hash() {
-        return CryptoUtil.soliditySha3(nonce, channelAddress, completedTransfers);
+        return CryptoUtil.soliditySha3(channelAddress, new Uint256(nonce), completedTransfers);
     }
 }

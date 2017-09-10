@@ -13,6 +13,9 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.security.auth.x500.X500Principal;
 
@@ -32,6 +35,7 @@ import org.bouncycastle.math.ec.ECPoint;
 import org.bouncycastle.x509.X509V1CertificateGenerator;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Uint;
+import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.crypto.ECKeyPair;
 import org.web3j.crypto.Hash;
 import org.web3j.crypto.Keys;
@@ -101,9 +105,13 @@ public class CryptoUtil {
         return new Address(Keys.getAddress(publicKey));
     }
 
-    public static byte[] toBytes32(Object obj) {
+    public static byte[] toBytes(Object obj) {
         if (obj instanceof byte[]) {
-            Preconditions.checkArgument(((byte[]) obj).length == 32);
+            int length = ((byte[]) obj).length;
+            Preconditions.checkArgument(length <= 32);
+            if (length < 32) {
+                return Arrays.copyOf((byte[]) obj, 32);
+            }
             return (byte[]) obj;
         } else if (obj instanceof BigInteger) {
             BigInteger value = (BigInteger) obj;
@@ -111,11 +119,15 @@ public class CryptoUtil {
                 value = MASK_256.and(value);
             }
             return Numeric.toBytesPadded(value, 32);
-        } else if (obj instanceof Uint) {
-            return toBytes32(((Uint) obj).getValue());
+        } else if (obj instanceof Address) {
+            Uint uint = (Uint) obj;
+            return Numeric.toBytesPadded(uint.getValue(), 20);
+        } else if (obj instanceof Uint256) {
+            Uint uint = (Uint) obj;
+            return Numeric.toBytesPadded(uint.getValue(), 32);
         } else if (obj instanceof Number) {
             long l = ((Number) obj).longValue();
-            return toBytes32(BigInteger.valueOf(l));
+            return toBytes(BigInteger.valueOf(l));
         }
         throw new IllegalArgumentException(obj.getClass().getName());
     }
@@ -142,9 +154,13 @@ public class CryptoUtil {
     }
 
     public static byte[] soliditySha3(Object... data) {
-        ByteBuffer buffer = ByteBuffer.allocate(data.length * 32);
-        for (Object d : data) {
-            buffer.put(toBytes32(d));
+        if (data.length == 1) {
+            return Hash.sha3(toBytes(data[0]));
+        }
+        List<byte[]> arrays = Stream.of(data).map(CryptoUtil::toBytes).collect(Collectors.toList());
+        ByteBuffer buffer = ByteBuffer.allocate(arrays.stream().mapToInt(a -> a.length).sum());
+        for (byte[] a : arrays) {
+            buffer.put(a);
         }
         byte[] array = buffer.array();
         assert buffer.position() == array.length;

@@ -1,4 +1,4 @@
-pragma solidity ^0.4.0;
+pragma solidity ^0.4.11;
 
 import 'zeppelin-solidity/contracts/token/StandardToken.sol';
 import 'zeppelin-solidity/contracts/ECRecovery.sol';
@@ -101,12 +101,10 @@ library ChannelLibrary {
     
         if (msg.sender != self.sender) {
             //checking signature
-            bytes32 signed_hash;
-
-            signed_hash = sha3 (
-            channel_address,
-            nonce,
-            completed_transfers
+            bytes32 signed_hash = hashState(
+                channel_address,
+                nonce,
+                completed_transfers
             );
 
             address sign_address = ECRecovery.recover(signed_hash, signature);
@@ -119,6 +117,52 @@ library ChannelLibrary {
     
         self.nonce = nonce;
         self.completed_transfers = completed_transfers;
+    }
+
+    function hashState (
+        address channel_address,
+        uint nonce,
+        uint completed_transfers
+    ) returns (bytes32) {
+        return sha3 (
+            channel_address,
+            nonce,
+            completed_transfers
+        );
+    }
+
+    function hash1(
+        uint256 a
+    ) returns (bytes32) {
+        return sha3 (a);
+    }
+
+    function hasha1(
+        address a
+    ) returns (bytes32) {
+        return sha3 (a);
+    }
+
+    function hasha2(
+        address a,
+        address b
+    ) returns (bytes32) {
+        return sha3 (a,b);
+    }
+
+    function hash2(
+        uint256 a,
+        uint256 b
+    ) returns (bytes32) {
+        return sha3 (a, b);
+    }
+
+    function hash3(
+        uint256 a,
+        uint256 b,
+        uint256 c
+    ) returns (bytes32) {
+        return sha3 (a, b, c);
     }
 
     /// @notice Settles the balance between the two parties
@@ -139,5 +183,47 @@ library ChannelLibrary {
         }
 
         self.settled = block.number;
+    }
+
+    function validateTransfer(
+        Data storage self,
+        address transfer_id,
+        address channel_address,
+        uint sum,
+        bytes lock_data,
+        bytes signature
+    ) returns (uint256) {
+
+        bytes32 signed_hash = hashTransfer(
+            transfer_id,
+            channel_address,
+            lock_data,
+            sum
+        );
+
+        address sign_address = ECRecovery.recover(signed_hash, signature);
+        require(sign_address == self.signer);
+    }
+
+    function hashTransfer(
+        address transfer_id,
+        address channel_address,
+        bytes lock_data,
+        uint sum
+    ) returns (bytes32) {
+        if (lock_data.length > 0) {
+            return sha3 (
+                transfer_id,
+                channel_address,
+                sum,
+                lock_data
+            );
+        } else {
+            return sha3 (
+                transfer_id,
+                channel_address,
+                sum
+            );
+        }
     }
 }

@@ -13,7 +13,7 @@ contract TestChannelLibrary {
 
         uint expected = 10000;
 
-        Assert.equal(1, expected, "Owner should have 10000 MetaCoin initially");
+        Assert.equal(10000, expected, "Owner should have 10000 MetaCoin initially");
     }
 
 }
