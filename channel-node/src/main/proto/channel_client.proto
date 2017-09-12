@@ -59,12 +59,13 @@ message TransferMessage {
     // Unique id
     string transfer_id = 1;
     // Payment channel address as HEX
+    
     string channel_address = 2;
     // Payment value in wei as decimal string
     string value = 3;
     // Signature as HEX signer by client
     string signature = 4;
-    
+    // transfer lock info
     MessageLock lock = 5;
 }
 
@@ -83,7 +84,7 @@ message UnlockTransferMessage {
     // Payment channel address as HEX
     string channel_address = 2;
     // Signature as HEX signer by client
-    repeated string auditor_signature = 3;
+    string signature = 3;
 }
 
 message UnlockTransferResponse {

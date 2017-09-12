@@ -9,6 +9,7 @@ import org.web3j.abi.datatypes.Address;
 
 import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.channel.SignedTransfer;
+import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 
 @Service
@@ -33,9 +34,16 @@ public class IncomingChannelManagers {
         return managers.computeIfAbsent(receiverAddress, address -> new IncomingChannelManager(contractsManagerFactory.getContractManager(receiverAddress)));
     }
 
-    public void registerTransfer(SignedTransfer signedTransfer) {
+    public void registerTransfer(SignedTransfer signedTransfer, boolean locked) {
         IncomingChannelState state = registry.get(signedTransfer.getChannelAddress()).orElseThrow(() -> new IllegalArgumentException("Channel not found: " + signedTransfer.getChannelAddress()));
-        if (!state.registerTransfer(signedTransfer)) {
+        if (!state.registerTransfer(signedTransfer, locked)) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    public void registerTransferUnlock(SignedTransferUnlock transferUnlock) {
+        IncomingChannelState state = registry.get(transferUnlock.getChannelAddress()).orElseThrow(() -> new IllegalArgumentException("Channel not found: " + transferUnlock.getChannelAddress()));
+        if (!state.registerTransferUnlock(transferUnlock)) {
             throw new IllegalArgumentException();
         }
     }

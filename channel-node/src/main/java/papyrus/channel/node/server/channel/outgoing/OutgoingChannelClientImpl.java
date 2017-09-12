@@ -11,11 +11,16 @@ import io.grpc.stub.StreamObserver;
 import papyrus.channel.node.ChannelStatusMessage;
 import papyrus.channel.node.ChannelStatusRequest;
 import papyrus.channel.node.ChannelStatusResponse;
+import papyrus.channel.node.MessageLock;
 import papyrus.channel.node.OutgoingChannelClientGrpc;
 import papyrus.channel.node.RegisterTransfersRequest;
 import papyrus.channel.node.RegisterTransfersResponse;
 import papyrus.channel.node.TransferMessage;
+import papyrus.channel.node.UnlockTransferMessage;
+import papyrus.channel.node.UnlockTransferRequest;
+import papyrus.channel.node.UnlockTransferResponse;
 import papyrus.channel.node.server.channel.SignedTransfer;
+import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.channel.incoming.OutgoingChannelRegistry;
 
 @Component
@@ -51,7 +56,7 @@ public class OutgoingChannelClientImpl extends OutgoingChannelClientGrpc.Outgoin
         for (TransferMessage transferMessage : request.getTransferList()) {
             try {
                 SignedTransfer signedTransfer = new SignedTransfer(transferMessage);
-                manager.registerTransfer(signedTransfer);
+                manager.registerTransfer(signedTransfer, transferMessage.getLock() == MessageLock.AUDITOR);
             } catch (IllegalArgumentException | SignatureException e) {
                 log.warn("Invalid transfer", e);
             }
@@ -60,4 +65,17 @@ public class OutgoingChannelClientImpl extends OutgoingChannelClientGrpc.Outgoin
         responseObserver.onCompleted();
     }
 
+    @Override
+    public void unlockTransfer(UnlockTransferRequest request, StreamObserver<UnlockTransferResponse> responseObserver) {
+        for (UnlockTransferMessage unlockTransferMessage : request.getUnlockList()) {
+            try {
+                SignedTransferUnlock signedTransferUnlock = new SignedTransferUnlock(unlockTransferMessage);
+                manager.registerTransferUnlock(signedTransferUnlock);
+            } catch (IllegalArgumentException | SignatureException e) {
+                log.warn("Invalid transfer", e);
+            }
+        }
+        responseObserver.onNext(UnlockTransferResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 }

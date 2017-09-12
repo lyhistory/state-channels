@@ -10,10 +10,15 @@ import papyrus.channel.node.ChannelStatusMessage;
 import papyrus.channel.node.ChannelStatusRequest;
 import papyrus.channel.node.ChannelStatusResponse;
 import papyrus.channel.node.IncomingChannelClientGrpc;
+import papyrus.channel.node.MessageLock;
 import papyrus.channel.node.RegisterTransfersRequest;
 import papyrus.channel.node.RegisterTransfersResponse;
 import papyrus.channel.node.TransferMessage;
+import papyrus.channel.node.UnlockTransferMessage;
+import papyrus.channel.node.UnlockTransferRequest;
+import papyrus.channel.node.UnlockTransferResponse;
 import papyrus.channel.node.server.channel.SignedTransfer;
+import papyrus.channel.node.server.channel.SignedTransferUnlock;
 
 @Component
 public class IncomingChannelClientImpl extends IncomingChannelClientGrpc.IncomingChannelClientImplBase {
@@ -42,12 +47,25 @@ public class IncomingChannelClientImpl extends IncomingChannelClientGrpc.Incomin
     public void registerTransfers(RegisterTransfersRequest request, StreamObserver<RegisterTransfersResponse> responseObserver) {
         for (TransferMessage transferMessage : request.getTransferList()) {
             try {
-                manager.registerTransfer(new SignedTransfer(transferMessage));
+                manager.registerTransfer(new SignedTransfer(transferMessage), transferMessage.getLock() == MessageLock.AUDITOR);
             } catch (Exception e) {
                 log.warn("Invalid transfer", e);
             }
         }
         responseObserver.onNext(RegisterTransfersResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void unlockTransfer(UnlockTransferRequest request, StreamObserver<UnlockTransferResponse> responseObserver) {
+        for (UnlockTransferMessage unlockTransferMessage : request.getUnlockList()) {
+            try {
+                manager.registerTransferUnlock(new SignedTransferUnlock(unlockTransferMessage));
+            } catch (Exception e) {
+                log.warn("Invalid transfer", e);
+            }
+        }
+        responseObserver.onNext(UnlockTransferResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 }

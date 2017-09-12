@@ -15,6 +15,7 @@ import org.web3j.abi.datatypes.Address;
 
 import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.server.channel.SignedTransfer;
+import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.channel.incoming.OutgoingChannelRegistry;
 import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 import papyrus.channel.node.server.ethereum.EthereumService;
@@ -106,12 +107,21 @@ public class OutgoingChannelPoolManager {
         });
     }
 
-    public void registerTransfer(SignedTransfer signedTransfer) throws SignatureException {
+    public void registerTransfer(SignedTransfer signedTransfer, boolean locked) throws SignatureException {
         OutgoingChannelState channelState = registry.get(signedTransfer.getChannelAddress()).orElseThrow(
             () -> new IllegalStateException("Unknown channel address: " + signedTransfer.getChannelAddress())
         );
         signedTransfer.verifySignature(channelState.getChannel().getClientAddress()::equals);
-        channelState.registerTransfer(signedTransfer);
+        channelState.registerTransfer(signedTransfer, locked);
+    }
+
+    public void registerTransferUnlock(SignedTransferUnlock transferUnlock) throws SignatureException {
+        OutgoingChannelState channelState = registry.get(transferUnlock.getChannelAddress()).orElseThrow(
+            () -> new IllegalStateException("Unknown channel address: " + transferUnlock.getChannelAddress())
+        );
+        Address auditor = channelState.getChannel().getProperties().getAuditor();
+        transferUnlock.verifySignature(auditor::equals);
+        channelState.unlockTransfer(transferUnlock);
     }
 
     public boolean requestCloseChannel(Address address) {

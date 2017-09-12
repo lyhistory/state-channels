@@ -21,6 +21,7 @@ import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.server.channel.BlockchainChannel;
 import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.channel.SignedTransfer;
+import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.ethereum.TokenService;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -33,6 +34,7 @@ public class OutgoingChannelState {
     private BlockchainChannel channel;
     private BigInteger transferedAmount = BigInteger.ZERO;
     private Map<BigInteger, SignedTransfer> transfers = new HashMap<>();
+    private Map<BigInteger, SignedTransfer> lockedTransfers = new HashMap<>();
     private long currentNonce;
     private long syncedNonce;
     private volatile boolean closeRequested;
@@ -115,18 +117,40 @@ public class OutgoingChannelState {
         return status.toString();
     }
 
-    public synchronized boolean registerTransfer(SignedTransfer transfer) {
+    public synchronized boolean registerTransfer(SignedTransfer transfer, boolean locked) {
         Preconditions.checkArgument(transfer.getChannelAddress().equals(getChannelAddress()));
         Preconditions.checkArgument(transfer.getValue().signum() > 0);
-        
-        if (transfers.putIfAbsent(transfer.getTransferId(), transfer) == null) {
-            transferedAmount = transferedAmount.add(transfer.getValue());
-            if (currentNonce == syncedNonce) {
-                currentNonce ++;
-            }
-            return true;
+
+        BigInteger transferId = transfer.getTransferId();
+        if (lockedTransfers.containsKey(transferId) || transfers.containsKey(transferId)) {
+            return false;
         }
-        return false;
+        if (locked) {
+            lockedTransfers.put(transferId, transfer);
+        } else {
+            transfers.put(transferId, transfer);
+            transferedAmount = transferedAmount.add(transfer.getValue());
+        }
+        stateChanged();
+        return true;
+    }
+
+    public synchronized boolean unlockTransfer(SignedTransferUnlock transfer) {
+        BigInteger transferId = transfer.getTransferId();
+        SignedTransfer existing = lockedTransfers.remove(transferId);
+        if (existing == null) {
+            return false;
+        }
+        transfers.put(transferId, existing);
+        transferedAmount = transferedAmount.add(existing.getValue());
+        stateChanged();
+        return true;
+    }
+
+    private void stateChanged() {
+        if (currentNonce == syncedNonce) {
+            currentNonce ++;
+        }
     }
 
     public synchronized boolean isNeedsSync() {
