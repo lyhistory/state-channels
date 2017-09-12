@@ -16,6 +16,7 @@ import org.web3j.abi.datatypes.Address;
 import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.incoming.OutgoingChannelRegistry;
+import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 import papyrus.channel.node.server.ethereum.EthereumService;
 import papyrus.channel.node.server.peer.PeerConnectionManager;
 
@@ -24,6 +25,7 @@ public class OutgoingChannelPoolManager {
     private final Map<Address, Map<Address, OutgoingChannelPool>> channelPools = new ConcurrentHashMap<>();
 
     private final EthereumService ethereumService;
+    private final ContractsManagerFactory contractsManagerFactory;
     private final PeerConnectionManager peerConnectionManager;
     private final EthereumConfig ethereumConfig;
     private final OutgoingChannelRegistry registry;
@@ -31,11 +33,13 @@ public class OutgoingChannelPoolManager {
     public OutgoingChannelPoolManager(
         EthereumService ethereumService,
         EthereumConfig ethereumConfig,
+        ContractsManagerFactory contractsManagerFactory,
         ScheduledExecutorService executorService,
         PeerConnectionManager peerConnectionManager,
         OutgoingChannelRegistry registry) {
         this.ethereumService = ethereumService;
         this.ethereumConfig = ethereumConfig;
+        this.contractsManagerFactory = contractsManagerFactory;
         this.peerConnectionManager = peerConnectionManager;
         this.registry = registry;
         syncChannels();
@@ -71,7 +75,7 @@ public class OutgoingChannelPoolManager {
                     registry, 
                     config,
                     ethereumService, 
-                    ethereumConfig.getContractManager(sender),
+                    contractsManagerFactory.getContractManager(sender),
                     peerConnectionManager,
                     ethereumConfig.getCredentials(sender),
                     ethereumConfig.getClientAddress(sender), 

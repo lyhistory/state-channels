@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import papyrus.channel.Error;
 import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.contract.ChannelManagerContract;
+import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.channel.incoming.OutgoingChannelRegistry;
 import papyrus.channel.node.server.ethereum.ContractsManager;
@@ -203,10 +204,12 @@ public class OutgoingChannelPool {
     }
 
     private void startCreating(OutgoingChannelState channel) {
+        ChannelProperties properties = channelProperties.getBlockchainProperties();
         Future<TransactionReceipt> future = contractsManager.channelManager().newChannel(
             clientAddress, 
             receiverAddress, 
-            new Uint256(channelProperties.getBlockchainProperties().getSettleTimeout())
+            new Uint256(properties.getSettleTimeout()),
+            properties.getAuditor()
         );
         //todo store transaction hash instead of future
         channel.startDeploying(CompletableFuture.supplyAsync(() -> {

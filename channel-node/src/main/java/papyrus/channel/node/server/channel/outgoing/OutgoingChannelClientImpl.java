@@ -36,6 +36,9 @@ public class OutgoingChannelClientImpl extends OutgoingChannelClientGrpc.Outgoin
             builder.addChannel(ChannelStatusMessage.newBuilder()
                 .setActive(true)
                 .setChannelAddress(state.getChannelAddress().toString())
+                .setProperties(
+                    state.getChannel().getProperties().toMessage()
+                )
                 .build()
             );
         }

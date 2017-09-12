@@ -19,6 +19,7 @@ library ChannelLibrary {
         address receiver;
         address client;
         uint balance;
+        address auditor;
 
         //state update for close
         uint nonce;
@@ -129,40 +130,6 @@ library ChannelLibrary {
             nonce,
             completed_transfers
         );
-    }
-
-    function hash1(
-        uint256 a
-    ) returns (bytes32) {
-        return sha3 (a);
-    }
-
-    function hasha1(
-        address a
-    ) returns (bytes32) {
-        return sha3 (a);
-    }
-
-    function hasha2(
-        address a,
-        address b
-    ) returns (bytes32) {
-        return sha3 (a,b);
-    }
-
-    function hash2(
-        uint256 a,
-        uint256 b
-    ) returns (bytes32) {
-        return sha3 (a, b);
-    }
-
-    function hash3(
-        uint256 a,
-        uint256 b,
-        uint256 c
-    ) returns (bytes32) {
-        return sha3 (a, b, c);
     }
 
     /// @notice Settles the balance between the two parties

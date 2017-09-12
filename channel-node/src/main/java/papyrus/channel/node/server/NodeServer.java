@@ -65,6 +65,7 @@ import io.netty.util.internal.NativeLibraryLoader;
 import papyrus.channel.node.config.ChannelServerProperties;
 import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.server.ethereum.ContractsManager;
+import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 import papyrus.channel.node.server.ethereum.CryptoUtil;
 import papyrus.channel.node.server.peer.EndpointRegistry;
 
@@ -78,11 +79,13 @@ public class NodeServer {
 
     private ChannelServerProperties properties;
     private final EthereumConfig ethereumConfig;
+    private final ContractsManagerFactory factory;
 
-    public NodeServer(List<BindableService> bindableServices, ChannelServerProperties properties, EthereumConfig ethereumConfig) {
+    public NodeServer(List<BindableService> bindableServices, ChannelServerProperties properties, EthereumConfig ethereumConfig, ContractsManagerFactory factory) {
         this.bindableServices = bindableServices;
         this.properties = properties;
         this.ethereumConfig = ethereumConfig;
+        this.factory = factory;
     }
 
     @EventListener(ContextStartedEvent.class)
@@ -108,7 +111,7 @@ public class NodeServer {
             log.warn("No endpoint url provided");
         } else {
             for (Address address : ethereumConfig.getAddresses()) {
-                ContractsManager contractManager = ethereumConfig.getContractManager(address);
+                ContractsManager contractManager = factory.getContractManager(address);
                 EndpointRegistry registry = new EndpointRegistry(contractManager.endpointRegistry());
                 registry.registerEndpoint(address, endpointUrl);
             }

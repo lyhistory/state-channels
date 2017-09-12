@@ -20,12 +20,13 @@ service ChannelAdmin {
 
 message AddChannelPoolRequest {
     string sender_address = 1;
-    string receiver_address = 2;
-    ChannelPropertiesMessage properties = 3;
+    string client_address = 2;
+    string receiver_address = 3;
+    ChannelPropertiesMessage properties = 6;
     //number of simultaneously active open channels
-    string deposit = 4;
-    int32 min_active_channels = 5;
-    int32 max_active_channels = 6;
+    string deposit = 7;
+    int32 min_active_channels = 8;
+    int32 max_active_channels = 9;
 }
 
 message AddChannelPoolResponse {

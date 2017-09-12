@@ -13,10 +13,20 @@ public class ChannelPoolProperties {
     private final ChannelProperties blockchainProperties;
 
     public ChannelPoolProperties(AddChannelPoolRequest request) {
-        this(request.getMinActiveChannels(), request.getMaxActiveChannels(), new BigInteger(request.getDeposit()), new ChannelProperties(request.getProperties()));
+        this(
+            request.getMinActiveChannels(), 
+            request.getMaxActiveChannels(), 
+            new BigInteger(request.getDeposit()), 
+            new ChannelProperties(request.getProperties())
+        );
     }
     
-    public ChannelPoolProperties(int minActiveChannels, int maxActiveChannels, BigInteger deposit, ChannelProperties blockchainProperties) {
+    public ChannelPoolProperties(
+        int minActiveChannels, 
+        int maxActiveChannels, 
+        BigInteger deposit, 
+        ChannelProperties blockchainProperties
+    ) {
         this.minActiveChannels = minActiveChannels;
         this.maxActiveChannels = maxActiveChannels;
         this.deposit = deposit;

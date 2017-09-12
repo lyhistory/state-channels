@@ -11,10 +11,10 @@ import org.web3j.abi.datatypes.Address;
 
 import com.google.common.base.Throwables;
 
-import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.server.channel.BlockchainChannel;
 import papyrus.channel.node.server.ethereum.ContractsManager;
+import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 
 @Component
 public class IncomingChannelRegistry {
@@ -23,8 +23,8 @@ public class IncomingChannelRegistry {
     private final Map<Address, IncomingChannelState> allChannelsByAddress = new ConcurrentHashMap<>();
     private final ContractsManager contractsManager;
 
-    public IncomingChannelRegistry(EthereumConfig config) {
-        contractsManager = config.getContractManager(config.getMainAddress());
+    public IncomingChannelRegistry(ContractsManagerFactory factory) {
+        contractsManager = factory.getMainContractManager();
     }
     
     public void setAddress(IncomingChannelState channel, Address channelAddress) {

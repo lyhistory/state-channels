@@ -13,6 +13,7 @@ import com.google.common.base.Throwables;
 
 import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.EndpointRegistryContract;
+import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 
 @Service
 public class EndpointRegistry {
@@ -21,8 +22,8 @@ public class EndpointRegistry {
     private EndpointRegistryContract registry;
 
     @Autowired
-    public EndpointRegistry(EthereumConfig config) {
-        this.registry = config.getContractManager(config.getMainAddress()).endpointRegistry();
+    public EndpointRegistry(EthereumConfig config, ContractsManagerFactory factory) {
+        this.registry = factory.getContractManager(config.getMainAddress()).endpointRegistry();
     }
 
     public EndpointRegistry(EndpointRegistryContract registry) {

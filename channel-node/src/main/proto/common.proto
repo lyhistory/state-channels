@@ -20,6 +20,8 @@ message BasicResponse {
 }
 
 message ChannelPropertiesMessage {
-    uint32 settle_timeout = 1;
-    uint32 close_timeout = 2;
+    uint64 settle_timeout = 1;
+    uint64 close_timeout = 2;
+    //auditor address
+    string auditor_address = 3;
 }

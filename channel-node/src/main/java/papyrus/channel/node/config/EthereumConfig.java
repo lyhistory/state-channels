@@ -15,12 +15,11 @@ import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.WalletUtils;
 import org.web3j.protocol.Web3j;
+import org.web3j.tx.RawTransactionManager;
 import org.web3j.tx.TransactionManager;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-
-import papyrus.channel.node.server.ethereum.ContractsManager;
 
 @EnableConfigurationProperties({EthProperties.class, ContractsProperties.class})
 @Configuration
@@ -30,7 +29,7 @@ public class EthereumConfig {
     private EthProperties properties;
     private final Map<Address, EthKeyProperties> keyProperties;
     private final Map<Address, Credentials> credentialsMap;
-    private final Map<Address, ContractsManager> managerMap;
+    private final Map<Address, TransactionManager> transactionManagerMap;
     private final Credentials mainCredentials;
 
     @Autowired
@@ -38,8 +37,9 @@ public class EthereumConfig {
         this.properties = properties;
         keyProperties = new HashMap<>();
         credentialsMap = new HashMap<>();
-        managerMap = new HashMap<>();
+        transactionManagerMap = new HashMap<>();
 
+        EthRpcProperties rpc = properties.getRpc();
         Credentials mainCred = null;
         for (EthKeyProperties key : properties.getKeys()) {
             Credentials credentials = loadCredentials(key);
@@ -47,12 +47,13 @@ public class EthereumConfig {
             Address address = new Address(credentials.getAddress());
             keyProperties.put(address, key);
             credentialsMap.put(address, credentials);
-            managerMap.put(address, new ContractsManager(properties.getRpc(), web3j, credentials, contractsProperties));
+            RawTransactionManager transactionManager = new RawTransactionManager(web3j, credentials, rpc.getAttempts(), (int) rpc.getSleep().toMillis());
+            transactionManagerMap.put(address, transactionManager);
         }
         
         assert keyProperties.size() == properties.getKeys().size();
         assert credentialsMap.size() == properties.getKeys().size();
-        assert managerMap.size() == properties.getKeys().size();
+        assert transactionManagerMap.size() == properties.getKeys().size();
         
         Preconditions.checkState(mainCred != null, "No eth.keys defined");
         mainCredentials = mainCred;
@@ -83,7 +84,7 @@ public class EthereumConfig {
         return keyProperties.keySet();
     }
 
-    private void checkAddress(Address address) {
+    public void checkAddress(Address address) {
         if (!credentialsMap.containsKey(address)) {
             throw new IllegalArgumentException("Account " + address + " is not managed");
         }
@@ -98,16 +99,8 @@ public class EthereumConfig {
     }
 
     public TransactionManager getTransactionManager(Address address) {
-        return getContractManager(address).getTransactionManager();
-    }
-
-    public ContractsManager getContractManager(Address address) {
         checkAddress(address);
-        return managerMap.get(address);
-    }
-
-    public ContractsManager getMainContractManager() {
-        return getContractManager(getMainAddress());
+        return transactionManagerMap.get(address);
     }
 
     public EthRpcProperties getRpcProperties() {

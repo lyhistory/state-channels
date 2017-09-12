@@ -79,6 +79,11 @@ public class BlockchainChannel {
 //            uint256 receiver_update.completed_transfers
         completedTransfers = ((Uint) st.get(i++)).getValue();
         Preconditions.checkState(completedTransfers.signum() >= 0);
+        //noinspection unchecked
+        Address auditorAddress = (Address) st.get(i++);
+        if (auditorAddress.getValue().signum() != 0) {
+            properties.setAuditor(auditorAddress);
+        }
         Preconditions.checkArgument(st.size() == i);
         this.contract = contract;
     }

@@ -7,19 +7,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 import org.web3j.abi.datatypes.Address;
 
-import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.channel.SignedTransfer;
+import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 
 @Service
 public class IncomingChannelManagers {
 
     private Map<Address, IncomingChannelManager> managers = new ConcurrentHashMap<>();
-    private final EthereumConfig config;
+    private final ContractsManagerFactory contractsManagerFactory;
     private IncomingChannelRegistry registry;
 
-    public IncomingChannelManagers(EthereumConfig config, IncomingChannelRegistry registry) {
-        this.config = config;
+    public IncomingChannelManagers(ContractsManagerFactory contractsManagerFactory, IncomingChannelRegistry registry) {
+        this.contractsManagerFactory = contractsManagerFactory;
         this.registry = registry;
     }
 
@@ -30,7 +30,7 @@ public class IncomingChannelManagers {
     }
 
     private IncomingChannelManager getOrCreateManager(Address receiverAddress) {
-        return managers.computeIfAbsent(receiverAddress, address -> new IncomingChannelManager(config.getContractManager(receiverAddress)));
+        return managers.computeIfAbsent(receiverAddress, address -> new IncomingChannelManager(contractsManagerFactory.getContractManager(receiverAddress)));
     }
 
     public void registerTransfer(SignedTransfer signedTransfer) {

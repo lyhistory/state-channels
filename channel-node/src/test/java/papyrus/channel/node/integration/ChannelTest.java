@@ -35,6 +35,7 @@ import papyrus.channel.node.contract.PapyrusToken;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelManagers;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelState;
+import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 import papyrus.channel.node.server.peer.PeerConnection;
 
 /**
@@ -76,7 +77,7 @@ public class ChannelTest {
         Assert.assertNotNull(senderClient);
         receiverClient = receiver.getBean(PeerConnection.class);
         Assert.assertNotNull(receiverClient);
-        token = sender.getBean(EthereumConfig.class).getMainContractManager().token();
+        token = sender.getBean(ContractsManagerFactory.class).getMainContractManager().token();
     }
 
     private ConfigurableApplicationContext createServerContext(String profile) {

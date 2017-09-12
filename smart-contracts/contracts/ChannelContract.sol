@@ -22,8 +22,10 @@ contract ChannelContract {
         address sender,
         address client,
         address receiver,
-        uint timeout)
-        settleTimeoutNotTooLow(timeout)
+        uint settle_timeout,
+        address auditor
+    )
+        settleTimeoutNotTooLow(settle_timeout)
     {
         //allow creation only from manager contract
         require(msg.sender == manager_address);
@@ -33,8 +35,9 @@ contract ChannelContract {
         data.sender = sender;
         data.client = client;
         data.receiver = receiver;
+        data.auditor = auditor;
         data.manager = ChannelManagerContract(manager_address);
-        data.settle_timeout = timeout;
+        data.settle_timeout = settle_timeout;
         data.opened = block.number;
     }
 
@@ -99,7 +102,8 @@ contract ChannelContract {
         address,
         uint256,
         uint,
-        uint256
+        uint256,
+        address
     ) {
         return (data.settle_timeout,
             data.opened,
@@ -111,7 +115,8 @@ contract ChannelContract {
             data.receiver,
             data.balance,
             data.nonce,
-            data.completed_transfers
+            data.completed_transfers,
+            data.auditor
         );
     }
 

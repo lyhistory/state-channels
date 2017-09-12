@@ -12,6 +12,9 @@ service OutgoingChannelClient {
 
     // Register transfer promise 
     rpc RegisterTransfers (RegisterTransfersRequest) returns (RegisterTransfersResponse);
+
+    // Unlock transfers 
+    rpc UnlockTransfer (UnlockTransferRequest) returns (UnlockTransferResponse);
 }
 
 // Light client interface for incoming channels
@@ -21,6 +24,9 @@ service IncomingChannelClient {
 
     // Register incoming transfers promises 
     rpc RegisterTransfers (RegisterTransfersRequest) returns (RegisterTransfersResponse);
+
+    // Unlock transfers 
+    rpc UnlockTransfer (UnlockTransferRequest) returns (UnlockTransferResponse);
 }
 
 message ChannelStatusMessage {
@@ -44,6 +50,10 @@ message RegisterTransfersRequest {
     repeated TransferMessage transfer = 1;
 }
 
+message RegisterTransfersResponse {
+    Error error = 1;
+}
+
 // Micropayment
 message TransferMessage {
     // Unique id
@@ -52,10 +62,30 @@ message TransferMessage {
     string channel_address = 2;
     // Payment value in wei as decimal string
     string value = 3;
-    // Signature as HEX
+    // Signature as HEX signer by client
     string signature = 4;
+    
+    MessageLock lock = 5;
 }
 
-message RegisterTransfersResponse {
+enum MessageLock {
+    NONE = 0;
+    AUDITOR = 1;
+}
+
+message UnlockTransferRequest {
+    repeated UnlockTransferMessage unlock = 1;
+}
+
+message UnlockTransferMessage {
+    // Unique id
+    string transfer_id = 1;
+    // Payment channel address as HEX
+    string channel_address = 2;
+    // Signature as HEX signer by client
+    repeated string auditor_signature = 3;
+}
+
+message UnlockTransferResponse {
     Error error = 1;
 }

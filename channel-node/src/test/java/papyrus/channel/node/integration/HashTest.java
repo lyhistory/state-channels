@@ -35,11 +35,12 @@ import papyrus.channel.node.config.PropertyConvertersConfig;
 import papyrus.channel.node.config.Web3jConfigurer;
 import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.ethereum.CryptoUtil;
+import papyrus.channel.node.server.ethereum.EthereumService;
 
 @EnableConfigurationProperties({EthProperties.class, ContractsProperties.class})
 @ActiveProfiles({"test", "testrpc", "sender"})
 @RunWith(SpringRunner.class)
-@SpringBootTest(classes = {PropertyConvertersConfig.class, Web3jConfigurer.class, EthereumConfig.class})
+@SpringBootTest(classes = {PropertyConvertersConfig.class, Web3jConfigurer.class, EthereumConfig.class, EthereumService.class})
 public class HashTest {
     
     @Autowired
