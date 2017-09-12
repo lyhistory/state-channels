@@ -1,6 +1,8 @@
 # Papyrus State Channels
 
-Papyrus State channels work on top of Ethereum network and allow ultra fast exchange of assets between participants. 
+## Overview
+
+Papyrus State Channels work on top of Ethereum network and allow ultra fast exchange of assets between participants. 
 Project consists of:
 
 - [channel-node](channel-node/README.md): 
@@ -11,3 +13,11 @@ Channel node encapsulates all complex logic and provide simple API for state cha
       
 - [smart-contracts](smart-contracts/README.md):
 Ethereum smart contracts required for channel node registration state channel life cycle.  
+
+## Building
+
+Requirements:
+- JDK 8
+- truffle framework
+
+Project uses gradle build system. You can build project simply by running `./gradlew build`
