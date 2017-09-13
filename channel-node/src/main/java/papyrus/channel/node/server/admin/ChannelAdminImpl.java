@@ -34,7 +34,6 @@ public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
 
     @Override
     public void addChannelPool(AddChannelPoolRequest request, StreamObserver<AddChannelPoolResponse> responseObserver) {
-        log.info("Adding pool {}->{} with channels: {}-{}", request.getSenderAddress(), request.getReceiverAddress(), request.getMinActiveChannels(), request.getMaxActiveChannels());
         if (request.getMinActiveChannels() < 0 || request.getMinActiveChannels() > MAX_CHANNELS_PER_ADDRESS) {
             responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal min active channels: %d", request.getMinActiveChannels())).asException());
             return;

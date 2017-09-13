@@ -20,7 +20,6 @@ service ChannelAdmin {
 
 message AddChannelPoolRequest {
     string sender_address = 1;
-    string client_address = 2;
     string receiver_address = 3;
     ChannelPropertiesMessage properties = 6;
     //number of simultaneously active open channels

@@ -4,8 +4,9 @@ import java.math.BigInteger;
 
 import papyrus.channel.node.AddChannelPoolRequest;
 import papyrus.channel.node.entity.ChannelProperties;
+import papyrus.channel.node.entity.DataObject;
 
-public class ChannelPoolProperties {
+public class ChannelPoolProperties extends DataObject {
     
     private final int minActiveChannels;
     private final int maxActiveChannels;

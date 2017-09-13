@@ -44,7 +44,7 @@ public class SignedTransferUnlock extends SignedObject {
     }
 
     @Override
-    protected byte[] hash() {
+    public byte[] hash() {
         return CryptoUtil.soliditySha3(transferId, channelAddress);
     }
 }

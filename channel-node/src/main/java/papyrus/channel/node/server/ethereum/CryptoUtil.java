@@ -28,6 +28,7 @@ import org.bouncycastle.jcajce.provider.asymmetric.ec.BCECPrivateKey;
 import org.bouncycastle.jcajce.provider.asymmetric.ec.BCECPublicKey;
 import org.bouncycastle.jcajce.provider.asymmetric.util.EC5Util;
 import org.bouncycastle.jcajce.provider.asymmetric.util.ECUtil;
+import org.bouncycastle.jcajce.provider.digest.Keccak;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECNamedCurveSpec;
 import org.bouncycastle.math.ec.ECCurve;
@@ -35,6 +36,7 @@ import org.bouncycastle.math.ec.ECPoint;
 import org.bouncycastle.x509.X509V1CertificateGenerator;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Uint;
+import org.web3j.abi.datatypes.generated.Bytes32;
 import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.crypto.ECKeyPair;
 import org.web3j.crypto.Hash;
@@ -201,5 +203,35 @@ public class CryptoUtil {
         certGen.setPublicKey(keyPair.getPublic());
         certGen.setSignatureAlgorithm("SHA256WITHECDSA");
         return certGen.generate(keyPair.getPrivate(), "BC");    
+    }
+
+    public static Bytes32 getMerkleRoot(List<? extends HashedObject> objects) {
+        if (objects.isEmpty()) {
+            return Bytes32.DEFAULT;
+        }
+        //TODO make incremental version
+        List<byte[]> hashes = objects.stream().map(HashedObject::hash).collect(Collectors.toList());
+        int size = hashes.size();
+        while (size > 1) {
+            for (int i = 0; i < size; i+=2) {
+                if (i < size - 1) {
+                    byte[] hash1 = hashes.get(i);
+                    byte[] hash2 = hashes.get(i + 1);
+                    hashes.set(i/2, sha3(hash1, hash2));
+                } else {
+                    hashes.set(i/2, hashes.get(i));
+                }
+            }
+            size >>= 1;
+        }
+        return new Bytes32(hashes.get(0));
+    }
+
+    public static byte[] sha3(byte[]... input) {
+        Keccak.DigestKeccak kecc = new Keccak.Digest256();
+        for (byte[] bytes : input) {
+            kecc.update(bytes, 0, bytes.length);
+        }
+        return kecc.digest();
     }
 }

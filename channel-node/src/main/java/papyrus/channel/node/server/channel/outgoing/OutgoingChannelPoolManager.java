@@ -10,6 +10,8 @@ import java.util.concurrent.TimeUnit;
 
 import javax.annotation.PreDestroy;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.web3j.abi.datatypes.Address;
 
@@ -23,6 +25,8 @@ import papyrus.channel.node.server.peer.PeerConnectionManager;
 
 @Component
 public class OutgoingChannelPoolManager {
+    private static final Logger log = LoggerFactory.getLogger(OutgoingChannelPoolManager.class);
+    
     private final Map<Address, Map<Address, OutgoingChannelPool>> channelPools = new ConcurrentHashMap<>();
 
     private final EthereumService ethereumService;
@@ -72,6 +76,13 @@ public class OutgoingChannelPoolManager {
     public void addPool(Address sender, Address receiver, ChannelPoolProperties config) {
         channelPools.computeIfAbsent(sender, a -> new ConcurrentHashMap<>()).compute(receiver, (addr, channelPool)->{
             if (channelPool == null) {
+                Address clientAddress = ethereumConfig.getClientAddress(sender);
+                log.info("Adding pool {}->{}, client: {}: {}", 
+                    sender,
+                    receiver,
+                    clientAddress, 
+                    config
+                );
                 channelPool = new OutgoingChannelPool(
                     registry, 
                     config,
@@ -79,9 +90,10 @@ public class OutgoingChannelPoolManager {
                     contractsManagerFactory.getContractManager(sender),
                     peerConnectionManager,
                     ethereumConfig.getCredentials(sender),
-                    ethereumConfig.getClientAddress(sender), 
+                    clientAddress, 
                     receiver
                 );
+
                 channelPool.start();
                 return channelPool;
             }
@@ -107,12 +119,12 @@ public class OutgoingChannelPoolManager {
         });
     }
 
-    public void registerTransfer(SignedTransfer signedTransfer, boolean locked) throws SignatureException {
+    public void registerTransfer(SignedTransfer signedTransfer) throws SignatureException {
         OutgoingChannelState channelState = registry.get(signedTransfer.getChannelAddress()).orElseThrow(
             () -> new IllegalStateException("Unknown channel address: " + signedTransfer.getChannelAddress())
         );
-        signedTransfer.verifySignature(channelState.getChannel().getClientAddress()::equals);
-        channelState.registerTransfer(signedTransfer, locked);
+        signedTransfer.verifySignature(channelState.getChannel().getClientAddress());
+        channelState.registerTransfer(signedTransfer);
     }
 
     public void registerTransferUnlock(SignedTransferUnlock transferUnlock) throws SignatureException {
@@ -120,7 +132,9 @@ public class OutgoingChannelPoolManager {
             () -> new IllegalStateException("Unknown channel address: " + transferUnlock.getChannelAddress())
         );
         Address auditor = channelState.getChannel().getProperties().getAuditor();
-        transferUnlock.verifySignature(auditor::equals);
+        if (auditor.getValue().signum() != 0) {
+            transferUnlock.verifySignature(auditor);
+        }
         channelState.unlockTransfer(transferUnlock);
     }
 

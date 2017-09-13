@@ -34,9 +34,9 @@ public class IncomingChannelManagers {
         return managers.computeIfAbsent(receiverAddress, address -> new IncomingChannelManager(contractsManagerFactory.getContractManager(receiverAddress)));
     }
 
-    public void registerTransfer(SignedTransfer signedTransfer, boolean locked) {
+    public void registerTransfer(SignedTransfer signedTransfer) {
         IncomingChannelState state = registry.get(signedTransfer.getChannelAddress()).orElseThrow(() -> new IllegalArgumentException("Channel not found: " + signedTransfer.getChannelAddress()));
-        if (!state.registerTransfer(signedTransfer, locked)) {
+        if (!state.registerTransfer(signedTransfer)) {
             throw new IllegalArgumentException();
         }
     }
@@ -66,8 +66,8 @@ public class IncomingChannelManagers {
         if (channelState == null) {
             throw new IllegalStateException("Channel not found: " + channelAddress);
         }
-        updateSenderState.verifySignature(channelState.getChannel().getSenderAddress()::equals);
+        updateSenderState.verifySignature(channelState.getChannel().getSenderAddress());
 
-        channelState.updateReceiverState(updateSenderState);
+        channelState.updateSenderState(updateSenderState);
     }
 }

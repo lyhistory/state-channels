@@ -197,8 +197,4 @@ public class BlockchainChannel {
             throw new RuntimeException(e);
         }
     }
-
-    public Address getclientAddress() {
-        return clientAddress;
-    }
 }

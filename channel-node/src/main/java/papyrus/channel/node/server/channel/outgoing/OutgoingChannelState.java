@@ -2,6 +2,7 @@ package papyrus.channel.node.server.channel.outgoing;
 
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -117,7 +118,15 @@ public class OutgoingChannelState {
         return status.toString();
     }
 
-    public synchronized boolean registerTransfer(SignedTransfer transfer, boolean locked) {
+    public Map<BigInteger, SignedTransfer> getTransfers() {
+        return Collections.unmodifiableMap(transfers);
+    }
+
+    public Map<BigInteger, SignedTransfer> getLockedTransfers() {
+        return Collections.unmodifiableMap(lockedTransfers);
+    }
+
+    public synchronized boolean registerTransfer(SignedTransfer transfer) {
         Preconditions.checkArgument(transfer.getChannelAddress().equals(getChannelAddress()));
         Preconditions.checkArgument(transfer.getValue().signum() > 0);
 
@@ -125,7 +134,7 @@ public class OutgoingChannelState {
         if (lockedTransfers.containsKey(transferId) || transfers.containsKey(transferId)) {
             return false;
         }
-        if (locked) {
+        if (transfer.isLocked()) {
             lockedTransfers.put(transferId, transfer);
         } else {
             transfers.put(transferId, transfer);
@@ -238,7 +247,7 @@ public class OutgoingChannelState {
             log.debug("Waiting settle timeout for channel {} blocks left: {}", getAddressSafe(), blocksLeft);
         }
     }
-    
+
     public enum Status {
         /** Fresh new object */
         NEW,

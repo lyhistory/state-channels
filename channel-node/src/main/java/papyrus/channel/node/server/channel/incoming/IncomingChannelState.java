@@ -2,6 +2,7 @@ package papyrus.channel.node.server.channel.incoming;
 
 import java.math.BigInteger;
 import java.security.SignatureException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,7 +20,7 @@ public class IncomingChannelState {
     
     private BlockchainChannel channel;
     private SignedChannelState ownState;
-    private SignedChannelState receiverState;
+    private SignedChannelState senderState;
     //TODO implement merkle tree
     private Map<BigInteger, SignedTransfer> transfers = new HashMap<>(); 
     private Map<BigInteger, SignedTransfer> lockedTransfers = new HashMap<>(); 
@@ -34,32 +35,38 @@ public class IncomingChannelState {
     }
 
     public SignedChannelState getOwnState() {
+        computeRoots();
         return ownState;
     }
 
-    public SignedChannelState getReceiverState() {
-        return receiverState;
-    }
-
-    public synchronized void updateReceiverState(SignedChannelState receiverState) {
-        if (this.receiverState != null && this.receiverState.getNonce() > receiverState.getNonce()) {
-            log.debug("Ignoring old state update for channel {}", channel.getChannelAddress());
-        }
-        this.receiverState = receiverState;
+    private synchronized void computeRoots() {
+        //TODO
     }
     
-    public synchronized boolean registerTransfer(SignedTransfer transfer, boolean locked) {
+    public SignedChannelState getSenderState() {
+        return senderState;
+    }
+
+    public synchronized void updateSenderState(SignedChannelState receiverState) {
+        if (this.senderState != null && this.senderState.getNonce() > receiverState.getNonce()) {
+            log.debug("Ignoring old state update for channel {}", channel.getChannelAddress());
+        }
+        this.senderState = receiverState;
+    }
+    
+    public synchronized boolean registerTransfer(SignedTransfer transfer) {
         try {
             BigInteger transferId = transfer.getTransferId();
             if (transfers.containsKey(transferId) || lockedTransfers.containsKey(transferId)) {
                 return false;
             }
-            transfer.verifySignature(channel.getclientAddress()::equals);
-            if (locked) {
+            transfer.verifySignature(channel.getClientAddress());
+            if (transfer.isLocked()) {
                 lockedTransfers.put(transferId, transfer);
             } else {
                 transfers.put(transferId, transfer);
                 ownState.setCompletedTransfers(ownState.getCompletedTransfers().add(transfer.getValue()));
+                ownState.setTransfersRoot(null);
             }
             return true;
         } catch (SignatureException e) {
@@ -69,7 +76,7 @@ public class IncomingChannelState {
 
     public synchronized boolean registerTransferUnlock(SignedTransferUnlock transferUnlock) {
         try {
-            transferUnlock.verifySignature(channel.getProperties().getAuditor()::equals);
+            transferUnlock.verifySignature(channel.getProperties().getAuditor());
             BigInteger transferId = transferUnlock.getTransferId();
             SignedTransfer transfer = lockedTransfers.remove(transferId);
             if (transfer == null) {
@@ -77,6 +84,8 @@ public class IncomingChannelState {
             }
             transfers.put(transferId, transfer);
             ownState.setCompletedTransfers(ownState.getCompletedTransfers().add(transfer.getValue()));
+            ownState.setTransfersRoot(null);
+            ownState.setLockedTransfersRoot(null);
             return true;
         } catch (SignatureException e) {
             throw new RuntimeException(e);
@@ -100,4 +109,11 @@ public class IncomingChannelState {
         return channel.getReceiverAddress();
     }
 
+    public Map<BigInteger, SignedTransfer> getTransfers() {
+        return Collections.unmodifiableMap(transfers);
+    }
+
+    public Map<BigInteger, SignedTransfer> getLockedTransfers() {
+        return Collections.unmodifiableMap(lockedTransfers);
+    }
 }

@@ -11,7 +11,6 @@ import io.grpc.stub.StreamObserver;
 import papyrus.channel.node.ChannelStatusMessage;
 import papyrus.channel.node.ChannelStatusRequest;
 import papyrus.channel.node.ChannelStatusResponse;
-import papyrus.channel.node.MessageLock;
 import papyrus.channel.node.OutgoingChannelClientGrpc;
 import papyrus.channel.node.RegisterTransfersRequest;
 import papyrus.channel.node.RegisterTransfersResponse;
@@ -56,7 +55,7 @@ public class OutgoingChannelClientImpl extends OutgoingChannelClientGrpc.Outgoin
         for (TransferMessage transferMessage : request.getTransferList()) {
             try {
                 SignedTransfer signedTransfer = new SignedTransfer(transferMessage);
-                manager.registerTransfer(signedTransfer, transferMessage.getLock() == MessageLock.AUDITOR);
+                manager.registerTransfer(signedTransfer);
             } catch (IllegalArgumentException | SignatureException e) {
                 log.warn("Invalid transfer", e);
             }

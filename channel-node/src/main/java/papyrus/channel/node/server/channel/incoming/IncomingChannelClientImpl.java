@@ -10,7 +10,6 @@ import papyrus.channel.node.ChannelStatusMessage;
 import papyrus.channel.node.ChannelStatusRequest;
 import papyrus.channel.node.ChannelStatusResponse;
 import papyrus.channel.node.IncomingChannelClientGrpc;
-import papyrus.channel.node.MessageLock;
 import papyrus.channel.node.RegisterTransfersRequest;
 import papyrus.channel.node.RegisterTransfersResponse;
 import papyrus.channel.node.TransferMessage;
@@ -47,7 +46,7 @@ public class IncomingChannelClientImpl extends IncomingChannelClientGrpc.Incomin
     public void registerTransfers(RegisterTransfersRequest request, StreamObserver<RegisterTransfersResponse> responseObserver) {
         for (TransferMessage transferMessage : request.getTransferList()) {
             try {
-                manager.registerTransfer(new SignedTransfer(transferMessage), transferMessage.getLock() == MessageLock.AUDITOR);
+                manager.registerTransfer(new SignedTransfer(transferMessage));
             } catch (Exception e) {
                 log.warn("Invalid transfer", e);
             }
