@@ -5,8 +5,8 @@ eth:
     gas-price: 1
     gas-limit: 2000000
     sleep: 1s
-  keys:
-    -
+  accounts:
+    0f08407d6816bb5fac35d4d057bd2175e27b19de:    
       private-key: 06e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
       auto-refill: 0.1
 channel:

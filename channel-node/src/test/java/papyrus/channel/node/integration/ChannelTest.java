@@ -91,7 +91,7 @@ public class ChannelTest {
         receiverCredentials = receiver.getBean(EthereumConfig.class).getMainCredentials();
         senderAddress = new Address(senderCredentials.getAddress());
         receiverAddress = new Address(receiverCredentials.getAddress());
-        clientCredentials = Credentials.create(sender.getBean(EthProperties.class).getKeys().get(0).getClientPrivateKey());
+        clientCredentials = Credentials.create(sender.getBean(EthProperties.class).getAccounts().values().iterator().next().getClientPrivateKey());
         
         Address clientAddress = sender.getBean(EthereumConfig.class).getClientAddress(senderAddress);
         Assert.assertThat(clientAddress.toString(), CoreMatchers.equalTo(clientCredentials.getAddress()));

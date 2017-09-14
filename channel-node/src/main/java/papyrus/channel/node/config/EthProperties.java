@@ -1,14 +1,14 @@
 package papyrus.channel.node.config;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("eth")
 public class EthProperties {
     private EthRpcProperties rpc = new EthRpcProperties();
-    private List<EthKeyProperties> keys = new ArrayList<>();
+    private Map<String, EthKeyProperties> accounts = new LinkedHashMap<>();
 
     public EthRpcProperties getRpc() {
         return rpc;
@@ -18,11 +18,11 @@ public class EthProperties {
         this.rpc = rpc;
     }
 
-    public List<EthKeyProperties> getKeys() {
-        return keys;
+    public Map<String, EthKeyProperties> getAccounts() {
+        return accounts;
     }
 
-    public void setKeys(List<EthKeyProperties> keys) {
-        this.keys = keys;
+    public void setAccounts(Map<String, EthKeyProperties> accounts) {
+        this.accounts = accounts;
     }
 }

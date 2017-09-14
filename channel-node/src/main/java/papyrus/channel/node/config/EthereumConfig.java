@@ -17,6 +17,7 @@ import org.web3j.crypto.WalletUtils;
 import org.web3j.protocol.Web3j;
 import org.web3j.tx.RawTransactionManager;
 import org.web3j.tx.TransactionManager;
+import org.web3j.utils.Numeric;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -33,7 +34,7 @@ public class EthereumConfig {
     private final Credentials mainCredentials;
 
     @Autowired
-    public EthereumConfig(EthProperties properties, ContractsProperties contractsProperties, Web3j web3j) throws IOException, CipherException {
+    public EthereumConfig(EthProperties properties, Web3j web3j) throws IOException, CipherException {
         this.properties = properties;
         keyProperties = new HashMap<>();
         credentialsMap = new HashMap<>();
@@ -41,8 +42,13 @@ public class EthereumConfig {
 
         EthRpcProperties rpc = properties.getRpc();
         Credentials mainCred = null;
-        for (EthKeyProperties key : properties.getKeys()) {
+        for (Map.Entry<String, EthKeyProperties> e : properties.getAccounts().entrySet()) {
+            String account = e.getKey();
+            EthKeyProperties key = e.getValue();
             Credentials credentials = loadCredentials(key);
+            if (!account.equals(Numeric.cleanHexPrefix(credentials.getAddress()))) {
+                throw new IllegalStateException("Invalid account address: " + credentials.getAddress() + ", expected: 0x" + account);
+            }
             if (mainCred == null) mainCred = credentials;
             Address address = new Address(credentials.getAddress());
             keyProperties.put(address, key);
@@ -51,9 +57,9 @@ public class EthereumConfig {
             transactionManagerMap.put(address, transactionManager);
         }
         
-        assert keyProperties.size() == properties.getKeys().size();
-        assert credentialsMap.size() == properties.getKeys().size();
-        assert transactionManagerMap.size() == properties.getKeys().size();
+        assert keyProperties.size() == properties.getAccounts().size();
+        assert credentialsMap.size() == properties.getAccounts().size();
+        assert transactionManagerMap.size() == properties.getAccounts().size();
         
         Preconditions.checkState(mainCred != null, "No eth.keys defined");
         mainCredentials = mainCred;

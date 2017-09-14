@@ -1,9 +1,8 @@
 eth:
-  keys:
-    -
-      #account: 0x51ec6501f31d2ae6cd799864b3598e188495cd76
-      private-key: 16e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
-      auto-refill: 0.1
+  accounts: 
+    51ec6501f31d2ae6cd799864b3598e188495cd76:
+        private-key: 16e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
+        auto-refill: 0.1
 channel:
   server:
     port: 10080
