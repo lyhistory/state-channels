@@ -1,8 +1,13 @@
 package papyrus.channel.node.integration;
 
+import java.math.BigInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+
+import org.junit.Assert;
+
+import papyrus.channel.Error;
 
 class Util {
     private static final long MAX_WAIT = 600000L;
@@ -31,5 +36,15 @@ class Util {
             sleep = Math.min(5000L, (long) (1.5 * sleep));
             
         } while (!condition.get());
+    }
+
+    static void assertBalance(BigInteger a, BigInteger b) {
+        if (a.subtract(b).abs().compareTo(BigInteger.valueOf(10000)) > 0) {
+            Assert.assertEquals(a, b);
+        }
+    }
+
+    static void assertNoError(Error error) {
+        Assert.assertEquals(error.getMessage(), 0, error.getStatusValue());
     }
 }

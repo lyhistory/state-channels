@@ -23,7 +23,6 @@ import org.web3j.utils.Convert;
 import com.google.common.base.Throwables;
 
 import papyrus.channel.ChannelPropertiesMessage;
-import papyrus.channel.Error;
 import papyrus.channel.node.AddChannelPoolRequest;
 import papyrus.channel.node.ChannelNodeApplication;
 import papyrus.channel.node.ChannelStatusRequest;
@@ -128,7 +127,7 @@ public class ChannelTest {
         SignedTransfer transfer = sendTransfer("1", channelState, transferSum);
 
         //check for double sending
-        assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
+        Util.assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
             .addTransfer(transfer.toMessage())
             .build()
         ).getError());
@@ -141,7 +140,7 @@ public class ChannelTest {
         
         SignedTransfer transfer2 = sendTransfer("2", channelState, transferSum2);
 
-        assertNoError(receiverClient.getIncomingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
+        Util.assertNoError(receiverClient.getIncomingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
             .addTransfer(transfer.toMessage())
             .addTransfer(transfer2.toMessage())
             .build()
@@ -178,11 +177,11 @@ public class ChannelTest {
 
         SignedTransferUnlock transferUnlock = unlockTransfer("1", channelState, auditorCredentials, transferSum);
 
-        assertNoError(receiverClient.getIncomingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
+        Util.assertNoError(receiverClient.getIncomingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
             .addTransfer(transfer.toMessage())
             .build()
         ).getError());
-        assertNoError(receiverClient.getIncomingChannelClient().unlockTransfer(UnlockTransferRequest.newBuilder()
+        Util.assertNoError(receiverClient.getIncomingChannelClient().unlockTransfer(UnlockTransferRequest.newBuilder()
             .addUnlock(transferUnlock.toMessage())
             .build()
         ).getError());
@@ -197,7 +196,7 @@ public class ChannelTest {
         Assert.assertTrue(channelState.getSenderState() != null);
         Assert.assertEquals(expectedTotalTransfer, ethers(channelState.getSenderState().getCompletedTransfers()));
 
-        assertNoError(
+        Util.assertNoError(
             senderClient.getClientAdmin().removeChannelPool(
                 RemoveChannelPoolRequest.newBuilder()
                     .setSenderAddress(senderAddress.toString())
@@ -216,8 +215,8 @@ public class ChannelTest {
 
         //must be settled
         BigInteger expectedTotalTransferWei = Convert.toWei(expectedTotalTransfer, Convert.Unit.ETHER).toBigIntegerExact();
-        assertBalance(expectedTotalTransferWei, senderStartBalance.subtract(token.balanceOf(senderAddress).get().getValue()));
-        assertBalance(expectedTotalTransferWei, token.balanceOf(receiverAddress).get().getValue().subtract(receiverStartBalance));
+        Util.assertBalance(expectedTotalTransferWei, senderStartBalance.subtract(token.balanceOf(senderAddress).get().getValue()));
+        Util.assertBalance(expectedTotalTransferWei, token.balanceOf(receiverAddress).get().getValue().subtract(receiverStartBalance));
     }
 
     private IncomingChannelState openChannel(AddChannelPoolRequest request) throws InterruptedException, ExecutionException {
@@ -263,7 +262,7 @@ public class ChannelTest {
 
         Assert.assertEquals(BigInteger.ZERO, channelState.getOwnState().getCompletedTransfers());
 
-        assertBalance(Convert.toWei(deposit, Convert.Unit.ETHER).toBigIntegerExact(), senderStartBalance.subtract(token.balanceOf(senderAddress).get().getValue()));
+        Util.assertBalance(Convert.toWei(deposit, Convert.Unit.ETHER).toBigIntegerExact(), senderStartBalance.subtract(token.balanceOf(senderAddress).get().getValue()));
         return channelState;
     }
 
@@ -274,7 +273,7 @@ public class ChannelTest {
         Assert.assertEquals(new Address(clientCredentials.getAddress()), transfer.getSignerAddress());
         Assert.assertEquals(transfer, new SignedTransfer(transfer.toMessage()));
 
-        assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
+        Util.assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
             .addTransfer(transfer.toMessage())
             .build()
         ).getError());
@@ -291,7 +290,7 @@ public class ChannelTest {
         Assert.assertEquals(new Address(clientCredentials.getAddress()), transfer.getSignerAddress());
         Assert.assertEquals(transfer, new SignedTransfer(transfer.toMessage()));
 
-        assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
+        Util.assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
             .addTransfer(transfer.toMessage())
             .build()
         ).getError());
@@ -311,7 +310,7 @@ public class ChannelTest {
         Assert.assertEquals(new Address(auditorCredentials.getAddress()), transferUnlock.getSignerAddress());
         Assert.assertEquals(transferUnlock, new SignedTransferUnlock(transferUnlock.toMessage()));
 
-        assertNoError(senderClient.getOutgoingChannelClient().unlockTransfer(UnlockTransferRequest.newBuilder()
+        Util.assertNoError(senderClient.getOutgoingChannelClient().unlockTransfer(UnlockTransferRequest.newBuilder()
             .addUnlock(transferUnlock.toMessage())
             .build()
         ).getError());
@@ -322,13 +321,4 @@ public class ChannelTest {
         return transferUnlock;
     }
 
-    static void assertBalance(BigInteger a, BigInteger b) {
-        if (a.subtract(b).abs().compareTo(BigInteger.valueOf(10000)) > 0) {
-            Assert.assertEquals(a, b);
-        }
-    }
-    
-    private void assertNoError(Error error) {
-        Assert.assertEquals(error.getMessage(), 0, error.getStatusValue());
-    }
 }

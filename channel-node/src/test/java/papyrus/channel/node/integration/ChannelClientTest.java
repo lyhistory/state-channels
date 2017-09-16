@@ -1,6 +1,10 @@
 package papyrus.channel.node.integration;
 
+import java.math.BigDecimal;
+import java.security.SignatureException;
+
 import org.junit.Assert;
+import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.Credentials;
 
 import papyrus.channel.ChannelPropertiesMessage;
@@ -8,6 +12,10 @@ import papyrus.channel.node.AddChannelPoolRequest;
 import papyrus.channel.node.ChannelStatusRequest;
 import papyrus.channel.node.ChannelStatusResponse;
 import papyrus.channel.node.HealthCheckRequest;
+import papyrus.channel.node.OutgoingChannelClientGrpc;
+import papyrus.channel.node.RegisterTransfersRequest;
+import papyrus.channel.node.RemoveChannelPoolRequest;
+import papyrus.channel.node.server.channel.SignedTransfer;
 
 public class ChannelClientTest {
     public static final String SSP_ADDRESS = "51ec6501f31d2ae6cd799864b3598e188495cd76";
@@ -50,5 +58,33 @@ public class ChannelClientTest {
 
         String channelAddress = response.getChannel(0).getChannelAddress();
         System.out.printf("Channel address: %s%n", channelAddress);
+
+        for (int i = 0; i < 10; i++) {
+            sendTransfer("" + i, channelAddress, new BigDecimal("0.00001"), dspClientCredentials, dsp.getOutgoingChannelClient());
+        }
+
+        //Remove channel pool
+        Util.assertNoError(
+            dsp.getClientAdmin().removeChannelPool(
+                RemoveChannelPoolRequest.newBuilder()
+                    .setSenderAddress(DSP_ADDRESS)
+                    .setReceiverAddress(SSP_ADDRESS)
+                    .build()
+            ).getError()
+        );
+    }
+
+    private static SignedTransfer sendTransfer(String transferId, String channelAddress, BigDecimal sum, Credentials clientCredentials, OutgoingChannelClientGrpc.OutgoingChannelClientBlockingStub channelClient) throws InterruptedException, SignatureException {
+        SignedTransfer transfer = new SignedTransfer(transferId, channelAddress, sum.toString(), false);
+        transfer.sign(clientCredentials.getEcKeyPair());
+        Assert.assertEquals(new Address(clientCredentials.getAddress()), transfer.getSignerAddress());
+        Assert.assertEquals(transfer, new SignedTransfer(transfer.toMessage()));
+
+        Util.assertNoError(channelClient.registerTransfers(RegisterTransfersRequest.newBuilder()
+            .addTransfer(transfer.toMessage())
+            .build()
+        ).getError());
+        
+        return transfer;
     }
 }
