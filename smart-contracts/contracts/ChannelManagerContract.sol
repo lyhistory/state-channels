@@ -45,7 +45,7 @@ contract ChannelManagerContract {
     /// @notice Create a new channel from msg.sender to receiver
     /// @param receiver The address of the receiver
     /// @param settle_timeout The settle timeout in blocks
-    /// @return The address of the newly created NettingChannelContract.
+    /// @return The address of the newly created ChannelContract.
     function newChannel(
         address client, 
         address receiver, 
@@ -54,9 +54,6 @@ contract ChannelManagerContract {
     )
         returns (address)
     {
-//        if (auditors.length == 0) require(auditors_threshold == 0);
-//        else require(auditors_threshold > 0 && auditors_threshold <= auditors.length);
-    
         address new_channel_address = new ChannelContract(
             this,
             msg.sender,
