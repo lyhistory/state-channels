@@ -58,7 +58,6 @@ import papyrus.channel.node.server.peer.PeerConnection;
 public class ChannelTest {
 
     private static final String PROFILES = "test,testrpc";
-    public static final long MAX_WAIT = 60000L;
 
     private ConfigurableApplicationContext sender;
     private ConfigurableApplicationContext receiver;
