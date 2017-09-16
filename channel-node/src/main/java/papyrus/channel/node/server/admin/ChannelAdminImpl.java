@@ -12,8 +12,11 @@ import papyrus.channel.node.AddChannelPoolResponse;
 import papyrus.channel.node.ChannelAdminGrpc;
 import papyrus.channel.node.CloseChannelRequest;
 import papyrus.channel.node.CloseChannelResponse;
+import papyrus.channel.node.HealthCheckRequest;
+import papyrus.channel.node.HealthCheckResponse;
 import papyrus.channel.node.RemoveChannelPoolRequest;
 import papyrus.channel.node.RemoveChannelPoolResponse;
+import papyrus.channel.node.server.ServerIdService;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelManagers;
 import papyrus.channel.node.server.channel.outgoing.ChannelPoolProperties;
 import papyrus.channel.node.server.channel.outgoing.OutgoingChannelPoolManager;
@@ -26,10 +29,16 @@ public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
     
     private OutgoingChannelPoolManager outgoingChannelPoolManager;
     private IncomingChannelManagers incomingChannelManagers;
+    private final ServerIdService nodeServer;
 
-    public ChannelAdminImpl(OutgoingChannelPoolManager outgoingChannelPoolManager, IncomingChannelManagers incomingChannelManagers) {
+    public ChannelAdminImpl(
+        OutgoingChannelPoolManager outgoingChannelPoolManager, 
+        IncomingChannelManagers incomingChannelManagers,
+        ServerIdService serverIdService
+    ) {
         this.outgoingChannelPoolManager = outgoingChannelPoolManager;
         this.incomingChannelManagers = incomingChannelManagers;
+        this.nodeServer = serverIdService;
     }
 
     @Override
@@ -73,6 +82,14 @@ public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
         incomingChannelManagers.requestCloseChannel(new Address(request.getChannelAddress()));
         outgoingChannelPoolManager.requestCloseChannel(new Address(request.getChannelAddress()));
         responseObserver.onNext(CloseChannelResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void healthCheck(HealthCheckRequest request, StreamObserver<HealthCheckResponse> responseObserver) {
+        responseObserver.onNext(HealthCheckResponse.newBuilder()
+            .setServerUid(nodeServer.getRunId().toString())
+            .build());
         responseObserver.onCompleted();
     }
 }

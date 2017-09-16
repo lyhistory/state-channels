@@ -3,6 +3,7 @@ package papyrus.channel.node.integration;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Lazy;
@@ -22,8 +23,13 @@ import papyrus.channel.protocol.ChannelPeerGrpc;
 public class NodeClientFactory {
     private final PeerConnection peerConnection;
 
+    @Autowired
     public NodeClientFactory(ChannelServerProperties serverProperties) throws URISyntaxException {
-        peerConnection = new PeerConnection(new URI(serverProperties.getEndpointUrl()));
+        this(serverProperties.getEndpointUrl());
+    }
+
+    public NodeClientFactory(String endpointUrl) throws URISyntaxException {
+        peerConnection = new PeerConnection(new URI(endpointUrl));
     }
 
     public ManagedChannel getChannel() {

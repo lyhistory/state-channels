@@ -38,8 +38,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.SignatureException;
 import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateParsingException;
 import java.util.List;
+import java.util.UUID;
 
 import javax.net.ssl.SSLException;
 
@@ -57,10 +57,7 @@ import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyServerBuilder;
-import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.internal.tcnative.Library;
-import io.netty.internal.tcnative.SSL;
 import io.netty.util.internal.NativeLibraryLoader;
 import papyrus.channel.node.config.ChannelServerProperties;
 import papyrus.channel.node.config.EthereumConfig;

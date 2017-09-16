@@ -16,6 +16,9 @@ service ChannelAdmin {
 
     // Forces channel to close as soon as possible
     rpc RequestCloseChannel(CloseChannelRequest) returns (CloseChannelResponse);
+
+    // Health check
+    rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
 }
 
 message AddChannelPoolRequest {
@@ -47,4 +50,13 @@ message RemoveChannelPoolRequest {
 
 message RemoveChannelPoolResponse {
     Error error = 1;
+}
+
+message HealthCheckRequest {
+    
+}
+
+message HealthCheckResponse {
+    Error error = 1;
+    string server_uid = 2;
 }

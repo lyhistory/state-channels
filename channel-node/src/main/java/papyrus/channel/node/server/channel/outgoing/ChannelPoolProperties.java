@@ -2,6 +2,8 @@ package papyrus.channel.node.server.channel.outgoing;
 
 import java.math.BigInteger;
 
+import org.web3j.utils.Convert;
+
 import papyrus.channel.node.AddChannelPoolRequest;
 import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.entity.DataObject;
@@ -16,8 +18,8 @@ public class ChannelPoolProperties extends DataObject {
     public ChannelPoolProperties(AddChannelPoolRequest request) {
         this(
             request.getMinActiveChannels(), 
-            request.getMaxActiveChannels(), 
-            new BigInteger(request.getDeposit()), 
+            request.getMaxActiveChannels(),
+            Convert.toWei(request.getDeposit(), Convert.Unit.ETHER).toBigIntegerExact(), 
             new ChannelProperties(request.getProperties())
         );
     }

@@ -74,6 +74,7 @@ public class OutgoingChannelPoolManager {
     }
 
     public void addPool(Address sender, Address receiver, ChannelPoolProperties config) {
+        ethereumConfig.checkAddress(sender);
         channelPools.computeIfAbsent(sender, a -> new ConcurrentHashMap<>()).compute(receiver, (addr, channelPool)->{
             if (channelPool == null) {
                 Address clientAddress = ethereumConfig.getClientAddress(sender);

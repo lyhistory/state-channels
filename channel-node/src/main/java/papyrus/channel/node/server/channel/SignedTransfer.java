@@ -1,8 +1,10 @@
 package papyrus.channel.node.server.channel;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import org.web3j.abi.datatypes.Address;
+import org.web3j.utils.Convert;
 import org.web3j.utils.Numeric;
 
 import papyrus.channel.node.MessageLock;
@@ -17,12 +19,22 @@ public class SignedTransfer extends SignedObject {
     private boolean locked;
 
     public SignedTransfer(TransferMessage transferMessage) {
-        this(transferMessage.getTransferId(), transferMessage.getChannelAddress(), transferMessage.getValue(), transferMessage.getLock() == MessageLock.AUDITOR);
+        this(
+            transferMessage.getTransferId(), 
+            transferMessage.getChannelAddress(), 
+            transferMessage.getValue(), 
+            transferMessage.getLock() == MessageLock.AUDITOR
+        );
         signature = Numeric.hexStringToByteArray(transferMessage.getSignature());
     }
 
     public SignedTransfer(String transferId, String channelAddress, String value, boolean locked) {
-        this(Numeric.toBigInt(transferId), new Address(channelAddress), new BigInteger(value), locked);
+        this(
+            Numeric.toBigInt(transferId), 
+            new Address(channelAddress),
+            Convert.toWei(value, Convert.Unit.ETHER).toBigIntegerExact(), 
+            locked
+        );
     }
 
     public SignedTransfer(BigInteger transferId, Address channelAddress, BigInteger value, boolean locked) {
@@ -53,7 +65,7 @@ public class SignedTransfer extends SignedObject {
             .setChannelAddress(Numeric.toHexStringNoPrefix(channelAddress.getValue()))
             .setSignature(Numeric.toHexStringNoPrefix(signature))
             .setTransferId(Numeric.toHexStringNoPrefix(transferId))
-            .setValue(value.toString())
+            .setValue(Convert.fromWei(new BigDecimal(value), Convert.Unit.ETHER).toString())
             .setLock(locked ? MessageLock.AUDITOR : MessageLock.NONE)
             .build();
     }
