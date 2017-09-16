@@ -6,15 +6,15 @@ import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.web3j.abi.datatypes.Address;
 
-@ConfigurationProperties("channel.contracts")
+@ConfigurationProperties("contract")
 public class ContractsProperties {
-    private Map<String, Address> predeployed = new HashMap<>();
+    private Map<String, Address> address = new HashMap<>();
 
-    public Map<String, Address> getPredeployed() {
-        return predeployed;
+    public Map<String, Address> getAddress() {
+        return address;
     }
 
-    public void setPredeployed(Map<String, Address> predeployed) {
-        this.predeployed = predeployed;
+    public void setAddress(Map<String, Address> address) {
+        this.address = address;
     }
 }

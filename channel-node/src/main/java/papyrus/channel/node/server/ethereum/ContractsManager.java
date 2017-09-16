@@ -49,7 +49,7 @@ public class ContractsManager {
         this.transactionManager = new RawTransactionManager(web3j, credentials, rpcProperties.getAttempts(), (int) rpcProperties.getSleep().toMillis());
         this.contractsProperties = contractsProperties;
 
-        log.info("Configuring pre deployed contracts {}", contractsProperties.getPredeployed());
+        log.info("Configuring pre deployed contracts {}", contractsProperties.getAddress());
         
         registry = loadPredeployedContract(EndpointRegistryContract.class);
         channelManager = loadPredeployedContract(ChannelManagerContract.class);
@@ -90,7 +90,7 @@ public class ContractsManager {
 
     public <C extends Contract> C loadAbstractPredeployedContract(Class<C> contractClass, String name) {
         try {
-            Address address = contractsProperties.getPredeployed().get(name);
+            Address address = contractsProperties.getAddress().get(name);
             if (address == null) {
                 throw new IllegalStateException("Contract address " + name + " not configured");
             }

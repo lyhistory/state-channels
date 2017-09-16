@@ -114,7 +114,7 @@ public class HashTest {
         String encodedFunction = FunctionEncoder.encode(function);
 
         TransactionManager transactionManager = cfg.getTransactionManager(cfg.getMainAddress());
-        String channelLibraryAddress = contractsProperties.getPredeployed().get("ChannelLibrary").toString();
+        String channelLibraryAddress = contractsProperties.getAddress().get("ChannelLibrary").toString();
         org.web3j.protocol.core.methods.response.EthCall ethCall = web3j.ethCall(
             Transaction.createEthCallTransaction(
                 transactionManager.getFromAddress(), channelLibraryAddress, encodedFunction),

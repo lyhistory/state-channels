@@ -18,6 +18,7 @@ Ethereum smart contracts required for channel node registration state channel li
 
 Requirements:
 - JDK 8
+- solc
 - truffle framework
 
 Project uses gradle build system. You can build project simply by running `./gradlew build`

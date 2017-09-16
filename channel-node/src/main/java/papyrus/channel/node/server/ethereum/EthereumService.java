@@ -45,16 +45,19 @@ public class EthereumService {
                 for (Address address : config.getAddresses()) {
                     BigDecimal autoRefill = config.getKeyProperties(address).getAutoRefill();
 
+                    String nodeAddress = address.toString();
+                    BigDecimal balance = getBalance(nodeAddress, Convert.Unit.ETHER);
+                    
+                    log.info("Balance of {} is {}", nodeAddress, balance);
+
                     if (autoRefill != null && autoRefill.signum() > 0) {
-                        String nodeAddress = address.toString();
-                        BigDecimal balance = getBalance(nodeAddress, Convert.Unit.ETHER);
                         if (balance.compareTo(autoRefill) < 0) {
                             String coinbase = web3j.ethCoinbase().send().getAddress();
                             
                             log.info("Refill {} ETH from {} to {}", autoRefill, coinbase, nodeAddress);
                             new Transfer(web3j, new ClientTransactionManager(web3j, coinbase, 100, 1000)).sendFundsAsync(nodeAddress, autoRefill, Convert.Unit.ETHER).get();
                         }
-                        log.info("Balance of {} is {}", nodeAddress, getBalance(nodeAddress, Convert.Unit.ETHER));
+                        log.info("Balance after refill of {} is {}", nodeAddress, getBalance(nodeAddress, Convert.Unit.ETHER));
                     }
                 }
                 
