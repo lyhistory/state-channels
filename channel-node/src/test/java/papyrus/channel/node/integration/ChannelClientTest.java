@@ -72,6 +72,17 @@ public class ChannelClientTest {
                     .build()
             ).getError()
         );
+
+        //Wait for close
+        Util.waitFor(() ->
+                dsp.getOutgoingChannelClient().getChannels(
+                    ChannelStatusRequest.newBuilder()
+                        .setSenderAddress(DSP_ADDRESS)
+                        .setReceiverAddress(SSP_ADDRESS)
+                        .build()
+                ),
+            r -> r.getChannelList().isEmpty()
+        );
     }
 
     private static SignedTransfer sendTransfer(String transferId, String channelAddress, BigDecimal sum, Credentials clientCredentials, OutgoingChannelClientGrpc.OutgoingChannelClientBlockingStub channelClient) throws InterruptedException, SignatureException {

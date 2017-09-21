@@ -33,6 +33,7 @@ import papyrus.channel.node.UnlockTransferRequest;
 import papyrus.channel.node.config.EthProperties;
 import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.PapyrusToken;
+import papyrus.channel.node.server.NodeServer;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelManagers;
@@ -105,10 +106,18 @@ public class ChannelTest {
     public void finish() throws IOException, CipherException {
         if (sender != null) try {
             sender.stop();
+            sender.getBean(NodeServer.class).awaitTermination();
         } catch (Exception e) {
             e.printStackTrace();
         }
-        if (receiver != null) receiver.stop();
+        if (receiver != null) {
+            try {
+                receiver.stop();
+                receiver.getBean(NodeServer.class).awaitTermination();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
     
     @Test

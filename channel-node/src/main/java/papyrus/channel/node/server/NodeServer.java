@@ -32,6 +32,8 @@
 package papyrus.channel.node.server;
 
 import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
@@ -39,7 +41,6 @@ import java.security.NoSuchProviderException;
 import java.security.SignatureException;
 import java.security.cert.CertificateEncodingException;
 import java.util.List;
-import java.util.UUID;
 
 import javax.net.ssl.SSLException;
 
@@ -73,10 +74,12 @@ public class NodeServer {
     private final List<BindableService> bindableServices;
 
     private Server grpcServer;
+    private ServerSocket healthCheckSocket;
 
     private ChannelServerProperties properties;
     private final EthereumConfig ethereumConfig;
     private final ContractsManagerFactory factory;
+    private Thread healthChecker;
 
     public NodeServer(List<BindableService> bindableServices, ChannelServerProperties properties, EthereumConfig ethereumConfig, ContractsManagerFactory factory) {
         this.bindableServices = bindableServices;
@@ -100,8 +103,16 @@ public class NodeServer {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        
+        if (properties.getHealthCheckPort() > 0) {
+            log.info("Starting health check at port {}", properties.getHealthCheckPort());
+            healthCheckSocket = new ServerSocket(properties.getHealthCheckPort());
+            healthChecker = new Thread(this::healthCheck, "Health Checker");
+            healthChecker.setDaemon(true);
+            healthChecker.start();
+        }
 
-        log.info("Server started, GRPC API listening on " + grpcServer.getPort());
+        log.info("Server started, GRPC API listening on {}", grpcServer.getPort());
 
         String endpointUrl = properties.getEndpointUrl();
         if (endpointUrl == null) {
@@ -111,6 +122,19 @@ public class NodeServer {
                 ContractsManager contractManager = factory.getContractManager(address);
                 EndpointRegistry registry = new EndpointRegistry(contractManager.endpointRegistry());
                 registry.registerEndpoint(address, endpointUrl);
+            }
+        }
+    }
+
+    private void healthCheck() {
+        while (!Thread.interrupted() && !healthCheckSocket.isClosed()) {
+            try {
+                Socket socket = healthCheckSocket.accept();
+                socket.getOutputStream().write("OK".getBytes());
+                socket.close();
+            } catch (IOException e) {
+                if (Thread.interrupted()) return;
+                log.debug("Health check socket error", e);
             }
         }
     }
@@ -132,12 +156,23 @@ public class NodeServer {
     }
 
     @EventListener(ContextStoppedEvent.class)
-    public void stop() {
-        if (grpcServer != null) {
-            grpcServer.shutdown();
+    public void stop() throws InterruptedException {
+        if (healthCheckSocket != null) {
+            try {
+                healthCheckSocket.close();
+                healthCheckSocket = null;
+            } catch (Exception e) {
+                log.warn("Failed to close socket", e);
+            }
         }
+        if (healthChecker != null) {
+            healthChecker.interrupt();
+            healthChecker.join();
+            healthChecker = null;
+        }
+        grpcServer.shutdown();
     }
-    
+
     public void awaitTermination() throws InterruptedException {
         if (grpcServer != null) {
             grpcServer.awaitTermination();

@@ -241,7 +241,10 @@ public class OutgoingChannelState {
             startTransition(
                 Status.SETTLED, 
                 channel.getContract().settle(),
-                tr -> channel.setSettled(tr.getBlockNumber().longValueExact())
+                tr -> {
+                    channel.setSettled(tr.getBlockNumber().longValueExact());
+                    log.debug("Channel {} settled. Completed transfers: {}", getAddressSafe(), getChannel().getCompletedTransfers());
+                }
             );
         } else {
             log.debug("Waiting settle timeout for channel {} blocks left: {}", getAddressSafe(), blocksLeft);

@@ -8,4 +8,5 @@ eth:
 channel:
   server:
     port: 10081
+    health-check-port: 10091
     endpoint-url: grpc://localhost:10081

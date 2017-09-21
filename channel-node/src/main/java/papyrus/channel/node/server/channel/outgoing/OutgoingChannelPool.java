@@ -110,7 +110,7 @@ public class OutgoingChannelPool {
                     try {
                         if (channel.checkTransitionInProgress()) continue;
 
-                        if (channel.isCloseRequested()) {
+                        if (channel.isCloseRequested() && !channel.isNeedsSync()) {
                             closeChannel(channel);
                         } else {
                             makeTransitions(channel);
@@ -252,5 +252,9 @@ public class OutgoingChannelPool {
     public void shutdown() {
         this.shutdown = true;
         channels.forEach(this::closeChannel);
+    }
+
+    public void cancelShutdown() {
+        this.shutdown = false;
     }
 }

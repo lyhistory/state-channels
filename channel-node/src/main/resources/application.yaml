@@ -6,6 +6,7 @@ eth:
 channel:
   server:
     port: 8080
+    health-check-port: 8081
 logging:
   level:
    default: INFO

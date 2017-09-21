@@ -98,6 +98,7 @@ public class OutgoingChannelPoolManager {
                 channelPool.start();
                 return channelPool;
             }
+            channelPool.cancelShutdown();
             channelPool.setChannelProperties(config);
             return channelPool;
         });
