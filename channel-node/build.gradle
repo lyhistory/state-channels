@@ -154,7 +154,7 @@ task dockerfile {
             copy {
                 into "$dockerBase/files/bin/libs"
                 from file
-                exclude '*blitz*'
+                exclude '*papyrus*'
                 rename { String name ->
                     "${file.parentFile.parentFile.parentFile.parentFile.name}.${name}"
                 }
@@ -162,7 +162,7 @@ task dockerfile {
             copy {
                 into "$dockerBase/files/bin/libs"
                 from file
-                include '*blitz*'
+                include '*papyrus*'
             }
         }
     }
