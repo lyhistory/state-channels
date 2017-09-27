@@ -7,6 +7,10 @@ channel:
   server:
     port: 8080
     health-check-port: 8081
+cassandra:
+  cluster: channel-node
+  port: 9042
+  contact-points: localhost
 logging:
   level:
    default: INFO

@@ -62,6 +62,11 @@ dependencies {
     compile "io.grpc:grpc-stub:${v.grpc}"
     compile 'io.netty:netty-tcnative-boringssl-static:2.0.6.Final'
 
+//    Cassandra
+    compile "com.datastax.cassandra:cassandra-driver-core:3.3.0"
+    compile "com.datastax.cassandra:cassandra-driver-mapping:3.3.0"
+    compile "com.datastax.cassandra:cassandra-driver-extras:3.3.0"
+
 //    Libraries
     compile "com.fasterxml.jackson.core:jackson-annotations:2.9.0"
     compile "com.fasterxml.jackson.core:jackson-core:2.9.0"
@@ -199,5 +204,14 @@ test {
     // listen to standard out and standard error of the test JVM(s)
     onOutput { descriptor, event ->
         logger.lifecycle("Test: " + descriptor + " produced standard out/err: " + event.message)
+    }
+}
+
+task runCassandra {
+    doLast {
+        mkdir "/tmp/channel-node-cassandra"
+        exec {
+            commandLine '/bin/bash', '-c', "docker run --rm --name channel-node-cassandra --rm -v /tmp/channel-node-cassandra:/cassandra_data -p 9042:9042 -e MAX_HEAP_SIZE=512m -e HEAP_NEWSIZE=64m -e CASSANDRA_SEEDS=localhost -e CASSANDRA_AUTO_BOOTSTRAP=true -e HOSTNAME=localhost eu.gcr.io/papyrus-global/cassandra:v11"
+        }
     }
 }
