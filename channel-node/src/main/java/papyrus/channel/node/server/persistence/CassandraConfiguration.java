@@ -42,6 +42,7 @@ public class CassandraConfiguration {
             //noinspection unchecked
             registry.register(new EnumNameCodec(e));
         }
+        registry.register(new AddressCodec());
     }
 
     @Bean

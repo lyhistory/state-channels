@@ -10,21 +10,17 @@ import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Test;
 import org.springframework.beans.BeansException;
-import org.springframework.boot.SpringApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
-import org.web3j.crypto.Keys;
 import org.web3j.utils.Convert;
 
 import com.google.common.base.Throwables;
 
 import papyrus.channel.ChannelPropertiesMessage;
 import papyrus.channel.node.AddChannelPoolRequest;
-import papyrus.channel.node.ChannelNodeApplication;
 import papyrus.channel.node.ChannelStatusRequest;
 import papyrus.channel.node.ChannelStatusResponse;
 import papyrus.channel.node.RegisterTransfersRequest;
@@ -41,13 +37,15 @@ import papyrus.channel.node.server.channel.incoming.IncomingChannelState;
 import papyrus.channel.node.server.channel.incoming.OutgoingChannelRegistry;
 import papyrus.channel.node.server.channel.outgoing.OutgoingChannelState;
 import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
+import papyrus.channel.node.server.ethereum.TokenConvert;
 import papyrus.channel.node.server.peer.PeerConnection;
+import papyrus.channel.node.server.persistence.DatabaseCleaner;
 
 /**
  * Before test run:
  * <br>
  * <code>
- *     testrpc -b 1 --seed 5ee1d
+ *     cd
  * </code>
  * And 
  * <code>
@@ -55,29 +53,30 @@ import papyrus.channel.node.server.peer.PeerConnection;
  * </code>
  * the copy contract addresses to application-testrpc.yaml
  */
-public class ChannelTest {
-
-    private static final String PROFILES = "test,testrpc";
-
-    private ConfigurableApplicationContext sender;
-    private ConfigurableApplicationContext receiver;
-    private PeerConnection senderClient;
-    private PeerConnection receiverClient;
-    private Credentials clientCredentials;
-    private PapyrusToken token;
-    private Credentials senderCredentials;
-    private Credentials receiverCredentials;
-    private Address senderAddress;
-    private Address receiverAddress;
-    private BigInteger senderStartBalance;
-    private BigInteger receiverStartBalance;
+public class BaseChannelTest {
+    ConfigurableApplicationContext sender;
+    ConfigurableApplicationContext receiver;
+    PeerConnection senderClient;
+    PeerConnection receiverClient;
+    Credentials clientCredentials;
+    PapyrusToken token;
+    Credentials senderCredentials;
+    Credentials receiverCredentials;
+    Address senderAddress;
+    Address receiverAddress;
+    BigInteger senderStartBalance;
+    BigInteger receiverStartBalance;
 
     @Before
     public void init() throws IOException, CipherException, ExecutionException, InterruptedException {
-        sender = createServerContext("sender");
-        receiver = createServerContext("receiver");
+        sender = Util.createServerContext("sender");
+        receiver = Util.createServerContext("receiver");
+        
+        sender.getBean(DatabaseCleaner.class).clean();
+        
         sender.start();
         receiver.start();
+
 
         senderClient = sender.getBean(PeerConnection.class);
         Assert.assertNotNull(senderClient);
@@ -98,10 +97,6 @@ public class ChannelTest {
         receiverStartBalance = token.balanceOf(receiverAddress).get().getValue();
     }
 
-    private ConfigurableApplicationContext createServerContext(String profile) {
-        return SpringApplication.run(ChannelNodeApplication.class, "--spring.profiles.active=" + PROFILES + "," + profile);
-    }
-
     @After
     public void finish() throws IOException, CipherException {
         if (sender != null) try {
@@ -119,91 +114,11 @@ public class ChannelTest {
             }
         }
     }
-    
-    @Test
-    public void testChannel() throws InterruptedException, ExecutionException, SignatureException {
-        //add participant - this will initiate channels opening
 
-        BigDecimal deposit = new BigDecimal("0.01");
-        
-        IncomingChannelState channelState = openChannel(AddChannelPoolRequest.newBuilder()
-            .setDeposit(deposit.toString())
-            .build()
-        );
-
-        BigDecimal transferSum = new BigDecimal("0.0001");
-
-        SignedTransfer transfer = sendTransfer("1", channelState, transferSum);
-
-        //check for double sending
-        Util.assertNoError(senderClient.getOutgoingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
-            .addTransfer(transfer.toMessage())
-            .build()
-        ).getError());
-
-        Thread.sleep(100);
-
-        Assert.assertEquals(transferSum, ethers(channelState.getSenderState().getCompletedTransfers()));
-
-        BigDecimal transferSum2 = new BigDecimal("0.0002");
-        
-        SignedTransfer transfer2 = sendTransfer("2", channelState, transferSum2);
-
-        Util.assertNoError(receiverClient.getIncomingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
-            .addTransfer(transfer.toMessage())
-            .addTransfer(transfer2.toMessage())
-            .build()
-        ).getError());
-
-        Util.waitFor(() -> channelState.getOwnState().getCompletedTransfers().signum() > 0);
-
-        closeAndSettleChannel(channelState, transferSum.add(transferSum2));
-    }
-
-    private BigDecimal ethers(BigInteger completedTransfers) {
-        return Convert.fromWei(new BigDecimal(completedTransfers), Convert.Unit.ETHER);
-    }
-
-    @Test
-    public void testLockedTransfers() throws Exception {
-        Credentials auditorCredentials = Credentials.create(Keys.createEcKeyPair());
-        String auditorAddress = auditorCredentials.getAddress();
-
-        BigDecimal deposit = new BigDecimal("0.01");
-
-        IncomingChannelState channelState = openChannel(AddChannelPoolRequest.newBuilder()
-            .setDeposit(deposit.toString())
-            .setProperties(
-                ChannelPropertiesMessage.newBuilder()
-                .setAuditorAddress(auditorAddress)
-                .build())
-            .build()
-        );
-
-        BigDecimal transferSum = new BigDecimal("0.0003");
-
-        SignedTransfer transfer = sendTransferLocked("1", channelState, transferSum);
-
-        SignedTransferUnlock transferUnlock = unlockTransfer("1", channelState, auditorCredentials, transferSum);
-
-        Util.assertNoError(receiverClient.getIncomingChannelClient().registerTransfers(RegisterTransfersRequest.newBuilder()
-            .addTransfer(transfer.toMessage())
-            .build()
-        ).getError());
-        Util.assertNoError(receiverClient.getIncomingChannelClient().unlockTransfer(UnlockTransferRequest.newBuilder()
-            .addUnlock(transferUnlock.toMessage())
-            .build()
-        ).getError());
-
-        Util.waitFor(() -> channelState.getOwnState().getCompletedTransfers().signum() > 0);
-
-        closeAndSettleChannel(channelState, transferSum);
-    }
-
-    private void closeAndSettleChannel(IncomingChannelState channelState, BigDecimal expectedTotalTransfer) throws InterruptedException, ExecutionException {
-        Assert.assertEquals(expectedTotalTransfer, ethers(channelState.getOwnState().getCompletedTransfers()));
+    void closeAndSettleChannel(IncomingChannelState channelState, BigDecimal expectedTotalTransfer) throws InterruptedException, ExecutionException {
+        Util.assertEquals(expectedTotalTransfer, TokenConvert.fromWei(channelState.getOwnState().getCompletedTransfers()));
         Assert.assertTrue(channelState.getSenderState() != null);
-        Assert.assertEquals(expectedTotalTransfer, ethers(channelState.getSenderState().getCompletedTransfers()));
+        Util.assertEquals(expectedTotalTransfer, TokenConvert.fromWei(channelState.getSenderState().getCompletedTransfers()));
 
         Util.assertNoError(
             senderClient.getClientAdmin().removeChannelPool(
@@ -228,7 +143,7 @@ public class ChannelTest {
         Util.assertBalance(expectedTotalTransferWei, token.balanceOf(receiverAddress).get().getValue().subtract(receiverStartBalance));
     }
 
-    private IncomingChannelState openChannel(AddChannelPoolRequest request) throws InterruptedException, ExecutionException {
+    IncomingChannelState openChannel(AddChannelPoolRequest request) throws InterruptedException, ExecutionException {
         BigDecimal deposit = new BigDecimal(request.getDeposit());
         
         AddChannelPoolRequest.Builder builder = AddChannelPoolRequest.newBuilder();
@@ -269,13 +184,13 @@ public class ChannelTest {
             ch -> ch.size() >= 1
         ).iterator().next();
 
-        Assert.assertEquals(BigInteger.ZERO, channelState.getOwnState().getCompletedTransfers());
+        Util.assertEquals(BigInteger.ZERO, channelState.getOwnState().getCompletedTransfers());
 
         Util.assertBalance(Convert.toWei(deposit, Convert.Unit.ETHER).toBigIntegerExact(), senderStartBalance.subtract(token.balanceOf(senderAddress).get().getValue()));
         return channelState;
     }
 
-    private SignedTransfer sendTransfer(String transferId, IncomingChannelState channelState, BigDecimal sum) throws InterruptedException, SignatureException {
+    SignedTransfer sendTransfer(String transferId, IncomingChannelState channelState, BigDecimal sum) throws InterruptedException, SignatureException {
         BigInteger completedTransfers = channelState.getSenderState() != null ? channelState.getSenderState().getCompletedTransfers() : BigInteger.ZERO;
         SignedTransfer transfer = new SignedTransfer(transferId, channelState.getChannelAddress().toString(), sum.toString(), false);
         transfer.sign(clientCredentials.getEcKeyPair());
@@ -289,11 +204,11 @@ public class ChannelTest {
 
         Util.waitFor(() -> channelState.getSenderState() != null && channelState.getSenderState().getCompletedTransfers().compareTo(completedTransfers) > 0);
 
-        Assert.assertEquals(completedTransfers.add(Convert.toWei(sum, Convert.Unit.ETHER).toBigIntegerExact()), channelState.getSenderState().getCompletedTransfers());
+        Util.assertEquals(completedTransfers.add(Convert.toWei(sum, Convert.Unit.ETHER).toBigIntegerExact()), channelState.getSenderState().getCompletedTransfers());
         return transfer;
     }
 
-    private SignedTransfer sendTransferLocked(String transferId, IncomingChannelState channelState, BigDecimal sum) throws InterruptedException, SignatureException {
+    SignedTransfer sendTransferLocked(String transferId, IncomingChannelState channelState, BigDecimal sum) throws InterruptedException, SignatureException {
         SignedTransfer transfer = new SignedTransfer(transferId, channelState.getChannelAddress().toString(), sum.toString(), true);
         transfer.sign(clientCredentials.getEcKeyPair());
         Assert.assertEquals(new Address(clientCredentials.getAddress()), transfer.getSignerAddress());
@@ -308,11 +223,11 @@ public class ChannelTest {
 
         Util.waitFor(() -> !outgoingChannelState.getLockedTransfers().isEmpty());
 
-        Assert.assertEquals(Convert.toWei(sum, Convert.Unit.ETHER).toBigIntegerExact(), outgoingChannelState.getLockedTransfers().get(new BigInteger(transferId)).getValue());
+        Util.assertEquals(Convert.toWei(sum, Convert.Unit.ETHER).toBigIntegerExact(), outgoingChannelState.getLockedTransfers().get(new BigInteger(transferId)).getValue());
         return transfer;
     }
 
-    private SignedTransferUnlock unlockTransfer(String transferId, IncomingChannelState channelState, Credentials auditorCredentials, BigDecimal sum) throws InterruptedException, SignatureException {
+    SignedTransferUnlock unlockTransfer(String transferId, IncomingChannelState channelState, Credentials auditorCredentials, BigDecimal sum) throws InterruptedException, SignatureException {
         BigInteger completedTransfers = channelState.getSenderState() != null ? channelState.getSenderState().getCompletedTransfers() : BigInteger.ZERO;
         SignedTransferUnlock transferUnlock = new SignedTransferUnlock(transferId, channelState.getChannelAddress().toString());
         transferUnlock.sign(auditorCredentials.getEcKeyPair());
@@ -326,7 +241,7 @@ public class ChannelTest {
 
         Util.waitFor(() -> channelState.getSenderState() != null && channelState.getSenderState().getCompletedTransfers().compareTo(completedTransfers) > 0);
 
-        Assert.assertEquals(completedTransfers.add(Convert.toWei(sum, Convert.Unit.ETHER).toBigIntegerExact()), channelState.getSenderState().getCompletedTransfers());
+        Util.assertEquals(completedTransfers.add(Convert.toWei(sum, Convert.Unit.ETHER).toBigIntegerExact()), channelState.getSenderState().getCompletedTransfers());
         return transferUnlock;
     }
 

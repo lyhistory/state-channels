@@ -1,7 +1,6 @@
 eth:
   rpc:
     node-url: http://localhost:8545
-#    node-url: http://dev.papyrus.global:80
     gas-price: 1
     gas-limit: 2000000
     sleep: 1s

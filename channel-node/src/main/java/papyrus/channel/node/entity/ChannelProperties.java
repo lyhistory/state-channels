@@ -1,8 +1,11 @@
 package papyrus.channel.node.entity;
 
+import java.util.Optional;
+
 import org.web3j.abi.datatypes.Address;
 
 import papyrus.channel.ChannelPropertiesMessage;
+import papyrus.channel.node.server.channel.outgoing.OutgoingChannelPoolBean;
 
 public class ChannelProperties extends DataObject {
     private long closeTimeout;
@@ -15,7 +18,13 @@ public class ChannelProperties extends DataObject {
     public ChannelProperties(ChannelPropertiesMessage properties) {
         this.closeTimeout = properties.getCloseTimeout();
         this.settleTimeout = properties.getSettleTimeout();
-        auditor = properties.getAuditorAddress() != null && !properties.getAuditorAddress().isEmpty() ? new Address(properties.getAuditorAddress()) : Address.DEFAULT;
+        auditor = properties.getAuditorAddress() != null && !properties.getAuditorAddress().isEmpty() ? new Address(properties.getAuditorAddress()) : null;
+    }
+
+    public ChannelProperties(OutgoingChannelPoolBean bean) {
+        this.closeTimeout = bean.getCloseTimeout();
+        this.settleTimeout = bean.getSettleTimeout();
+        this.auditor = bean.getAuditor();
     }
 
     public long getCloseTimeout() {
@@ -34,8 +43,8 @@ public class ChannelProperties extends DataObject {
         this.settleTimeout = settleTimeout;
     }
 
-    public Address getAuditor() {
-        return auditor;
+    public Optional<Address> getAuditor() {
+        return Optional.ofNullable(auditor);
     }
 
     public boolean hasAuditor() {

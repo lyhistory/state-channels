@@ -7,6 +7,7 @@ import org.web3j.utils.Convert;
 import papyrus.channel.node.AddChannelPoolRequest;
 import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.entity.DataObject;
+import papyrus.channel.node.server.ethereum.TokenConvert;
 
 public class ChannelPoolProperties extends DataObject {
     
@@ -21,6 +22,15 @@ public class ChannelPoolProperties extends DataObject {
             request.getMaxActiveChannels(),
             Convert.toWei(request.getDeposit(), Convert.Unit.ETHER).toBigIntegerExact(), 
             new ChannelProperties(request.getProperties())
+        );
+    }
+    
+    public ChannelPoolProperties(OutgoingChannelPoolBean bean) {
+        this(
+            bean.getMinActive(), 
+            bean.getMaxActive(), 
+            TokenConvert.toWei(bean.getDeposit()), 
+            new ChannelProperties(bean)
         );
     }
     

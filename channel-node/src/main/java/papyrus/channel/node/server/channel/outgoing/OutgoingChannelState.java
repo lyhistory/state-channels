@@ -242,8 +242,9 @@ public class OutgoingChannelState {
                 Status.SETTLED, 
                 channel.getContract().settle(),
                 tr -> {
-                    channel.setSettled(tr.getBlockNumber().longValueExact());
-                    log.debug("Channel {} settled. Completed transfers: {}", getAddressSafe(), getChannel().getCompletedTransfers());
+                    long blockNumber = tr.getBlockNumber().longValueExact();
+                    channel.setSettled(blockNumber);
+                    log.debug("Channel {} settled. Block number: {}. Completed transfers: {}", getAddressSafe(), blockNumber, channel.getCompletedTransfers());
                 }
             );
         } else {

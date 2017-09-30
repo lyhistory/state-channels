@@ -17,8 +17,9 @@ CREATE TABLE IF NOT EXISTS outgoing.channel_pool (
     min_active          int,
     max_active          int,
     deposit             decimal,
-    close_timeout       int,
-    settle_timeout      int,
+    close_timeout       bigint,
+    settle_timeout      bigint,
+    shutdown            boolean,
     PRIMARY KEY(sender,receiver) 
 )
 WITH comment='Outgoing channel pools';

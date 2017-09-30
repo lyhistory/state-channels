@@ -1,16 +1,21 @@
 package papyrus.channel.node.integration;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import org.junit.Assert;
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 
 import papyrus.channel.Error;
+import papyrus.channel.node.ChannelNodeApplication;
 
 class Util {
     private static final long MAX_WAIT = 600000L;
+    private static final String PROFILES = "test,testrpc";
 
     static <T> T waitFor(Supplier<T> supplier, Predicate<T> condition) throws InterruptedException {
         AtomicReference<T> reference = new AtomicReference<>();
@@ -46,5 +51,21 @@ class Util {
 
     static void assertNoError(Error error) {
         Assert.assertEquals(error.getMessage(), 0, error.getStatusValue());
+    }
+
+    static ConfigurableApplicationContext createServerContext(String profile) {
+        return SpringApplication.run(ChannelNodeApplication.class, "--spring.profiles.active=" + PROFILES + "," + profile);
+    }
+
+    public static void assertEquals(BigDecimal expected, BigDecimal actual) {
+        if (expected.compareTo(actual) != 0) {
+            Assert.assertEquals(expected, actual);
+        }
+    }
+
+    public static void assertEquals(BigInteger expected, BigInteger actual) {
+        if (expected.compareTo(actual) != 0) {
+            Assert.assertEquals(expected, actual);
+        }
     }
 }

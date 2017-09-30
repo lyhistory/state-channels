@@ -12,15 +12,20 @@ import javax.annotation.PreDestroy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.ContextStartedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.web3j.abi.datatypes.Address;
 
 import papyrus.channel.node.config.EthereumConfig;
+import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.channel.incoming.OutgoingChannelRegistry;
 import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 import papyrus.channel.node.server.ethereum.EthereumService;
+import papyrus.channel.node.server.ethereum.TokenConvert;
 import papyrus.channel.node.server.peer.PeerConnectionManager;
 
 @Component
@@ -29,27 +34,41 @@ public class OutgoingChannelPoolManager {
     
     private final Map<Address, Map<Address, OutgoingChannelPool>> channelPools = new ConcurrentHashMap<>();
 
-    private final EthereumService ethereumService;
-    private final ContractsManagerFactory contractsManagerFactory;
-    private final PeerConnectionManager peerConnectionManager;
-    private final EthereumConfig ethereumConfig;
-    private final OutgoingChannelRegistry registry;
+    @Autowired
+    private EthereumService ethereumService;
+    @Autowired
+    private ContractsManagerFactory contractsManagerFactory;
+    @Autowired
+    private PeerConnectionManager peerConnectionManager;
+    @Autowired
+    private EthereumConfig ethereumConfig;
+    @Autowired
+    private OutgoingChannelRegistry registry;
+    @Autowired
+    private OutgoingChannelPoolRepository repository;
+    @Autowired
+    private ScheduledExecutorService executorService;
 
-    public OutgoingChannelPoolManager(
-        EthereumService ethereumService,
-        EthereumConfig ethereumConfig,
-        ContractsManagerFactory contractsManagerFactory,
-        ScheduledExecutorService executorService,
-        PeerConnectionManager peerConnectionManager,
-        OutgoingChannelRegistry registry) {
-        this.ethereumService = ethereumService;
-        this.ethereumConfig = ethereumConfig;
-        this.contractsManagerFactory = contractsManagerFactory;
-        this.peerConnectionManager = peerConnectionManager;
-        this.registry = registry;
+    @EventListener(ContextStartedEvent.class)
+    public void start() throws Exception {
+        loadPersistentChannels();
         syncChannels();
         executorService.scheduleWithFixedDelay(this::cleanup, 1, 1, TimeUnit.SECONDS);
         executorService.scheduleWithFixedDelay(this::syncChannels, 60, 60, TimeUnit.SECONDS);
+    }
+
+    private void loadPersistentChannels() {
+        //loading pools
+        for (OutgoingChannelPoolBean bean : repository.iterate()) {
+            OutgoingChannelPool pool = createOrUpdatePool(
+                bean.getSender(),
+                bean.getReceiver(),
+                new ChannelPoolProperties(bean.getMinActive(), bean.getMaxActive(), TokenConvert.toWei(bean.getDeposit()), new ChannelProperties())
+            );
+            if (bean.isShutdown()) {
+                pool.shutdown();
+            }
+        }
     }
 
     private void syncChannels() {
@@ -74,8 +93,14 @@ public class OutgoingChannelPoolManager {
     }
 
     public void addPool(Address sender, Address receiver, ChannelPoolProperties config) {
+        OutgoingChannelPoolBean bean = new OutgoingChannelPoolBean(sender, receiver, config);
+        repository.save(bean);
+        createOrUpdatePool(sender, receiver, config);
+    }
+
+    private OutgoingChannelPool createOrUpdatePool(Address sender, Address receiver, ChannelPoolProperties config) {
         ethereumConfig.checkAddress(sender);
-        channelPools.computeIfAbsent(sender, a -> new ConcurrentHashMap<>()).compute(receiver, (addr, channelPool)->{
+        return channelPools.computeIfAbsent(sender, a -> new ConcurrentHashMap<>()).compute(receiver, (addr, channelPool)->{
             if (channelPool == null) {
                 Address clientAddress = ethereumConfig.getClientAddress(sender);
                 log.info("Adding pool {}->{}, client: {}: {}", 
@@ -103,12 +128,13 @@ public class OutgoingChannelPoolManager {
             return channelPool;
         });
     }
-    
+
     public void removePool(Address sender, Address receiver) {
         Map<Address, OutgoingChannelPool> poolMap = channelPools.get(sender);
         if (poolMap == null) return;
         OutgoingChannelPool manager = poolMap.get(receiver);
         if (manager != null) {
+            repository.markShutdown(sender, receiver);
             manager.shutdown();
         }
     }
@@ -129,14 +155,18 @@ public class OutgoingChannelPoolManager {
         channelState.registerTransfer(signedTransfer);
     }
 
-    public void registerTransferUnlock(SignedTransferUnlock transferUnlock) throws SignatureException {
+    public void registerTransferUnlock(SignedTransferUnlock transferUnlock) {
         OutgoingChannelState channelState = registry.get(transferUnlock.getChannelAddress()).orElseThrow(
             () -> new IllegalStateException("Unknown channel address: " + transferUnlock.getChannelAddress())
         );
-        Address auditor = channelState.getChannel().getProperties().getAuditor();
-        if (auditor.getValue().signum() != 0) {
-            transferUnlock.verifySignature(auditor);
-        }
+        ChannelProperties properties = channelState.getChannel().getProperties();
+        properties.getAuditor().ifPresent(expectedSigner -> {
+            try {
+                transferUnlock.verifySignature(expectedSigner);
+            } catch (SignatureException e) {
+                throw new RuntimeException(e);
+            }
+        });
         channelState.unlockTransfer(transferUnlock);
     }
 

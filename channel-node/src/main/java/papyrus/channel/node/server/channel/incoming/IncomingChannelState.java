@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.web3j.abi.datatypes.Address;
 
+import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.server.channel.BlockchainChannel;
 import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.channel.SignedTransfer;
@@ -75,21 +76,24 @@ public class IncomingChannelState {
     }
 
     public synchronized boolean registerTransferUnlock(SignedTransferUnlock transferUnlock) {
-        try {
-            transferUnlock.verifySignature(channel.getProperties().getAuditor());
-            BigInteger transferId = transferUnlock.getTransferId();
-            SignedTransfer transfer = lockedTransfers.remove(transferId);
-            if (transfer == null) {
-                return false;
+        ChannelProperties properties = channel.getProperties();
+        properties.getAuditor().ifPresent(expectedSigner -> {
+            try {
+                transferUnlock.verifySignature(expectedSigner);
+            } catch (SignatureException e) {
+                throw new RuntimeException(e);
             }
-            transfers.put(transferId, transfer);
-            ownState.setCompletedTransfers(ownState.getCompletedTransfers().add(transfer.getValue()));
-            ownState.setTransfersRoot(null);
-            ownState.setLockedTransfersRoot(null);
-            return true;
-        } catch (SignatureException e) {
-            throw new RuntimeException(e);
+        });
+        BigInteger transferId = transferUnlock.getTransferId();
+        SignedTransfer transfer = lockedTransfers.remove(transferId);
+        if (transfer == null) {
+            return false;
         }
+        transfers.put(transferId, transfer);
+        ownState.setCompletedTransfers(ownState.getCompletedTransfers().add(transfer.getValue()));
+        ownState.setTransfersRoot(null);
+        ownState.setLockedTransfersRoot(null);
+        return true;
     }
 
     public Address getChannelAddress() {

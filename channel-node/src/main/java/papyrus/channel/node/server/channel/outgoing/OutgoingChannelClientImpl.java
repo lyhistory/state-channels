@@ -70,7 +70,7 @@ public class OutgoingChannelClientImpl extends OutgoingChannelClientGrpc.Outgoin
             try {
                 SignedTransferUnlock signedTransferUnlock = new SignedTransferUnlock(unlockTransferMessage);
                 manager.registerTransferUnlock(signedTransferUnlock);
-            } catch (IllegalArgumentException | SignatureException e) {
+            } catch (Exception e) {
                 log.warn("Invalid transfer", e);
             }
         }

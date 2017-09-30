@@ -209,7 +209,7 @@ public class OutgoingChannelPool {
             clientAddress, 
             receiverAddress, 
             new Uint256(properties.getSettleTimeout()),
-            properties.getAuditor()
+            properties.getAuditor().orElse(Address.DEFAULT)
         );
         //todo store transaction hash instead of future
         channel.startDeploying(CompletableFuture.supplyAsync(() -> {
