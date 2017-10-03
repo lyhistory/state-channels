@@ -20,7 +20,6 @@ import papyrus.channel.node.UnlockTransferRequest;
 import papyrus.channel.node.UnlockTransferResponse;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.SignedTransferUnlock;
-import papyrus.channel.node.server.channel.incoming.OutgoingChannelRegistry;
 
 @Component
 public class OutgoingChannelClientImpl extends OutgoingChannelClientGrpc.OutgoingChannelClientImplBase {

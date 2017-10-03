@@ -21,10 +21,10 @@ public class OutgoingChannelBean {
     private BigDecimal transferred;
 
     @Column(name = "current_nonce")
-    private int currentNonce;
+    private long currentNonce;
 
     @Column(name = "synced_nonce")
-    private int syncedNonce;
+    private long syncedNonce;
 
     public Address getAddress() {
         return address;
@@ -50,19 +50,19 @@ public class OutgoingChannelBean {
         this.transferred = transferred;
     }
 
-    public int getCurrentNonce() {
+    public long getCurrentNonce() {
         return currentNonce;
     }
 
-    public void setCurrentNonce(int currentNonce) {
+    public void setCurrentNonce(long currentNonce) {
         this.currentNonce = currentNonce;
     }
 
-    public int getSyncedNonce() {
+    public long getSyncedNonce() {
         return syncedNonce;
     }
 
-    public void setSyncedNonce(int syncedNonce) {
+    public void setSyncedNonce(long syncedNonce) {
         this.syncedNonce = syncedNonce;
     }
 }

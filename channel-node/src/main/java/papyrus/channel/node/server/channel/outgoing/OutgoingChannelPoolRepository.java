@@ -24,7 +24,7 @@ public class OutgoingChannelPoolRepository extends ClusteredCassandraRepository<
         queries = mappingManager.createAccessor(Queries.class);
     }
 
-    public Iterable<OutgoingChannelPoolBean> iterate() {
+    public Iterable<OutgoingChannelPoolBean> all() {
         return queries.getAll();
     }
 

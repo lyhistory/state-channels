@@ -35,7 +35,7 @@ import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelManagers;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelState;
-import papyrus.channel.node.server.channel.incoming.OutgoingChannelRegistry;
+import papyrus.channel.node.server.channel.outgoing.OutgoingChannelRegistry;
 import papyrus.channel.node.server.channel.outgoing.OutgoingChannelState;
 import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 import papyrus.channel.node.server.ethereum.TokenConvert;

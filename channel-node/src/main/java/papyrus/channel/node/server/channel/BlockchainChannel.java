@@ -13,8 +13,9 @@ import com.google.common.base.Preconditions;
 import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.contract.ChannelManagerContract;
 import papyrus.channel.node.entity.ChannelProperties;
+import papyrus.channel.node.entity.DataObject;
 
-public class BlockchainChannel {
+public class BlockchainChannel extends DataObject {
     private final Address senderAddress;
     private final Address clientAddress;
     private final Address receiverAddress;

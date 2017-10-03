@@ -27,9 +27,9 @@ public class Retriable<T> implements Callable<T> {
         this.callable = callable;
     }
 
-    public static Retriable<?> wrapRunnable(Runnable runnable) {
+    public static Retriable<?> wrapTask(Task task) {
         return new Retriable<>(() -> {
-            runnable.run();
+            task.run();
             return null;
         });
     }
@@ -80,5 +80,9 @@ public class Retriable<T> implements Callable<T> {
             builder.accept(t);
         }
         return builder.build();
+    }
+    
+    public interface Task {
+        void run() throws Exception;
     }
 }

@@ -23,6 +23,7 @@ import papyrus.channel.node.server.channel.BlockchainChannel;
 import papyrus.channel.node.server.channel.SignedChannelState;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.SignedTransferUnlock;
+import papyrus.channel.node.server.ethereum.TokenConvert;
 import papyrus.channel.node.server.ethereum.TokenService;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -48,6 +49,14 @@ public class OutgoingChannelState {
         setStatus(Status.NEW);
     }
 
+    public OutgoingChannelState(BlockchainChannel channel) {
+        this.channel = channel;
+        status = 
+            channel.getSettled() > 0 ? Status.SETTLED : 
+            channel.getClosed() > 0 ? Status.CLOSED : 
+            channel.getBalance().signum() > 0 ? Status.OPENED : Status.CREATED;
+    }
+
     public boolean isClosed() {
         return closeRequested || channel != null && channel.getClosed() > 0 || getPendingStatus() == Status.CLOSED;
     }
@@ -62,6 +71,31 @@ public class OutgoingChannelState {
 
     BlockchainChannel getChannel() {
         return channel;
+    }
+
+    public void updateBlockchainState(OutgoingChannelState state) {
+        this.channel = state.getChannel();
+        if (status != state.getStatus() && (transition == null || transition.nextStatus != state.getStatus())) {
+            log.warn("Channel {} status changed in blockchain from {} to {} ", getAddressSafe(), status, state.getStatus());
+            status = state.getStatus();
+        }
+    }
+
+    public void updatePersistentState(OutgoingChannelBean bean) {
+        currentNonce = bean.getCurrentNonce();
+        syncedNonce = bean.getSyncedNonce();
+        transferedAmount = TokenConvert.toWei(bean.getTransferred());
+        status = bean.getStatus();
+    }
+    
+    public OutgoingChannelBean getPersistentState() {
+        OutgoingChannelBean bean = new OutgoingChannelBean();
+        bean.setCurrentNonce(currentNonce);
+        bean.setSyncedNonce(syncedNonce);
+        bean.setAddress(getChannelAddress());
+        bean.setStatus(status);
+        bean.setTransferred(TokenConvert.fromWei(transferedAmount));
+        return bean;
     }
 
     public Address getChannelAddress() {
@@ -261,7 +295,7 @@ public class OutgoingChannelState {
         DEPOSIT_APPROVED,
         /** Active (deposit added) */
         OPENED, 
-        /** Active (deposit added) */
+        /** Counterparty notified */
         ACTIVE, 
         /** Closed in blockchain. */
         CLOSED, 

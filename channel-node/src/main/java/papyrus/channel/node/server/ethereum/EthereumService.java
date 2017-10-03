@@ -7,6 +7,7 @@ import java.util.concurrent.ExecutionException;
 
 import javax.annotation.PostConstruct;
 
+import org.apache.http.conn.HttpHostConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import org.web3j.utils.Convert;
 import com.google.common.base.Throwables;
 
 import papyrus.channel.node.config.EthereumConfig;
+import papyrus.channel.node.util.Retriable;
 
 @Service
 public class EthereumService {
@@ -39,32 +41,31 @@ public class EthereumService {
 
     @PostConstruct
     public void init() throws IOException, InterruptedException, ExecutionException {
-        while (!Thread.interrupted()) {
-            try {
-                netVersion = web3j.netVersion().send().getNetVersion();
-                for (Address address : config.getAddresses()) {
-                    BigDecimal autoRefill = config.getKeyProperties(address).getAutoRefill();
+        Retriable.wrapTask(this::doInit)
+            .retryOn(HttpHostConnectException.class)
+            .withErrorMessage("Failed to connect to ethereum RPC")
+            .withDelaySec(10)
+            .call();
+    }
 
-                    String nodeAddress = address.toString();
-                    BigDecimal balance = getBalance(nodeAddress, Convert.Unit.ETHER);
+    private void doInit() throws IOException, InterruptedException, ExecutionException {
+        netVersion = web3j.netVersion().send().getNetVersion();
+        for (Address address : config.getAddresses()) {
+            BigDecimal autoRefill = config.getKeyProperties(address).getAutoRefill();
+
+            String nodeAddress = address.toString();
+            BigDecimal balance = getBalance(nodeAddress, Convert.Unit.ETHER);
+            
+            log.info("Balance of {} is {}", nodeAddress, balance);
+
+            if (autoRefill != null && autoRefill.signum() > 0) {
+                if (balance.compareTo(autoRefill) < 0) {
+                    String coinbase = web3j.ethCoinbase().send().getAddress();
                     
-                    log.info("Balance of {} is {}", nodeAddress, balance);
-
-                    if (autoRefill != null && autoRefill.signum() > 0) {
-                        if (balance.compareTo(autoRefill) < 0) {
-                            String coinbase = web3j.ethCoinbase().send().getAddress();
-                            
-                            log.info("Refill {} ETH from {} to {}", autoRefill, coinbase, nodeAddress);
-                            new Transfer(web3j, new ClientTransactionManager(web3j, coinbase, 100, 1000)).sendFundsAsync(nodeAddress, autoRefill, Convert.Unit.ETHER).get();
-                        }
-                        log.info("Balance after refill of {} is {}", nodeAddress, getBalance(nodeAddress, Convert.Unit.ETHER));
-                    }
+                    log.info("Refill {} ETH from {} to {}", autoRefill, coinbase, nodeAddress);
+                    new Transfer(web3j, new ClientTransactionManager(web3j, coinbase, 100, 1000)).sendFundsAsync(nodeAddress, autoRefill, Convert.Unit.ETHER).get();
                 }
-                
-                break;
-            } catch (Exception e) {
-                log.warn("Failed to connect to ethereum RPC. Will retry in 10 sec", e);
-                Thread.sleep(10000L);
+                log.info("Balance after refill of {} is {}", nodeAddress, getBalance(nodeAddress, Convert.Unit.ETHER));
             }
         }
     }

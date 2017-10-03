@@ -8,6 +8,8 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import papyrus.channel.node.ChannelPoolMessage;
+import papyrus.channel.node.ChannelStatusMessage;
+import papyrus.channel.node.ChannelStatusRequest;
 import papyrus.channel.node.GetChannelPoolsRequest;
 
 public class PersistenceTest extends BaseChannelTest {
@@ -33,5 +35,14 @@ public class PersistenceTest extends BaseChannelTest {
         ).getPoolList();
 
         Assert.assertEquals(1, poolList.size());
+
+        List<ChannelStatusMessage> channelList = senderClient.getOutgoingChannelClient().getChannels(
+            ChannelStatusRequest.newBuilder()
+                .setSenderAddress(senderAddress.toString())
+                .setReceiverAddress(receiverAddress.toString())
+                .build()
+        ).getChannelList();
+
+        Assert.assertEquals(1, channelList.size());
     }
 }

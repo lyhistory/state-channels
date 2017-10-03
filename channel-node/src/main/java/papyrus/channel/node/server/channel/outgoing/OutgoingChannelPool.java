@@ -22,7 +22,6 @@ import papyrus.channel.node.contract.ChannelContract;
 import papyrus.channel.node.contract.ChannelManagerContract;
 import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.server.channel.SignedChannelState;
-import papyrus.channel.node.server.channel.incoming.OutgoingChannelRegistry;
 import papyrus.channel.node.server.ethereum.ContractsManager;
 import papyrus.channel.node.server.ethereum.EthereumService;
 import papyrus.channel.node.server.ethereum.TokenService;
@@ -42,6 +41,7 @@ public class OutgoingChannelPool {
     private static final Logger log = LoggerFactory.getLogger(OutgoingChannelPool.class);
     
     private final ContractsManager contractsManager;
+    private final OutgoingChannelRepository channelRepository;
     private final OutgoingChannelRegistry registry;
     private final EthereumService ethereumService;
     private final TokenService tokenService;
@@ -62,6 +62,7 @@ public class OutgoingChannelPool {
         EthereumService ethereumService,
         ContractsManager contractsManager,
         PeerConnectionManager peerConnectionManager,
+        OutgoingChannelRepository channelRepository,
         Credentials senderCredentials,
         Address clientAddress,
         Address receiverAddress
@@ -70,6 +71,7 @@ public class OutgoingChannelPool {
         this.ethereumService = ethereumService;
         this.tokenService = contractsManager.getTokenService();
         this.peerConnectionManager = peerConnectionManager;
+        this.channelRepository = channelRepository;
         this.credentials = senderCredentials;
         this.senderAddress = new Address(senderCredentials.getAddress());
         this.clientAddress = clientAddress;
@@ -133,6 +135,7 @@ public class OutgoingChannelPool {
                         }
 
                         if (channel.getStatus() != status) {
+                            save(channel);
                             updated = true;
                             log.info("Outgoing channel:{} to receiver:{} updated from:{} to:{}", channel.getAddressSafe(), receiverAddress, status, channel.getStatus());
                         }
@@ -161,10 +164,12 @@ public class OutgoingChannelPool {
         switch (channel.getStatus()) {
             case NEW:
                 channel.makeDisposable();
+                save(channel);
                 break;
             case CREATED:
             case ACTIVE:
                 channel.doClose();
+                save(channel);
                 break;
         }
     }
@@ -216,6 +221,7 @@ public class OutgoingChannelPool {
         ).getError();
         if (error == null) {
             channel.syncCompleted(state);
+            save(channel);
         }
     }
 
@@ -247,6 +253,10 @@ public class OutgoingChannelPool {
         }));
     }
 
+    private void save(OutgoingChannelState channel) {
+        channelRepository.save(channel.getPersistentState());
+    }
+
     public void start() {
         watchThread.start();
     }
@@ -272,5 +282,9 @@ public class OutgoingChannelPool {
 
     public void cancelShutdown() {
         this.shutdown = false;
+    }
+
+    public void addChannel(OutgoingChannelState state) {
+        channels.add(state);
     }
 }
