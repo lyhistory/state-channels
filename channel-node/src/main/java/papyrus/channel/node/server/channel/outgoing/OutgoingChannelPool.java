@@ -83,8 +83,24 @@ public class OutgoingChannelPool {
         this.channelProperties = channelProperties;
     }
 
+    public ChannelPoolProperties getChannelProperties() {
+        return channelProperties;
+    }
+
     public boolean isFinished() {
         return shutdown && channels.isEmpty();
+    }
+
+    public Address getSenderAddress() {
+        return senderAddress;
+    }
+
+    public Address getClientAddress() {
+        return clientAddress;
+    }
+
+    public Address getReceiverAddress() {
+        return receiverAddress;
     }
 
     private void cycle() {

@@ -10,6 +10,9 @@ service ChannelAdmin {
     
     // Creates or updates outgoing channel with given participant
     rpc AddChannelPool(AddChannelPoolRequest) returns (AddChannelPoolResponse);
+    
+    // Creates or updates outgoing channel with given participant
+    rpc GetChannelPools(GetChannelPoolsRequest) returns (GetChannelPoolsResponse);
 
     // Remove participant and asynchronously closes outgoing channels
     rpc RemoveChannelPool(RemoveChannelPoolRequest) returns (RemoveChannelPoolResponse);
@@ -22,6 +25,10 @@ service ChannelAdmin {
 }
 
 message AddChannelPoolRequest {
+    ChannelPoolMessage pool = 1;
+}
+
+message ChannelPoolMessage {
     string sender_address = 1;
     string receiver_address = 3;
     ChannelPropertiesMessage properties = 6;
@@ -33,6 +40,16 @@ message AddChannelPoolRequest {
 
 message AddChannelPoolResponse {
     Error error = 1;
+}
+
+message GetChannelPoolsRequest {
+    string sender_address = 1;
+    //optional
+    string receiver_address = 2;
+}
+
+message GetChannelPoolsResponse {
+    repeated ChannelPoolMessage pool = 1;
 }
 
 message CloseChannelRequest {

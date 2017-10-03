@@ -1,5 +1,7 @@
 package papyrus.channel.node.server.admin;
 
+import java.util.Collection;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -10,8 +12,11 @@ import io.grpc.stub.StreamObserver;
 import papyrus.channel.node.AddChannelPoolRequest;
 import papyrus.channel.node.AddChannelPoolResponse;
 import papyrus.channel.node.ChannelAdminGrpc;
+import papyrus.channel.node.ChannelPoolMessage;
 import papyrus.channel.node.CloseChannelRequest;
 import papyrus.channel.node.CloseChannelResponse;
+import papyrus.channel.node.GetChannelPoolsRequest;
+import papyrus.channel.node.GetChannelPoolsResponse;
 import papyrus.channel.node.HealthCheckRequest;
 import papyrus.channel.node.HealthCheckResponse;
 import papyrus.channel.node.RemoveChannelPoolRequest;
@@ -19,7 +24,9 @@ import papyrus.channel.node.RemoveChannelPoolResponse;
 import papyrus.channel.node.server.ServerIdService;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelManagers;
 import papyrus.channel.node.server.channel.outgoing.ChannelPoolProperties;
+import papyrus.channel.node.server.channel.outgoing.OutgoingChannelPool;
 import papyrus.channel.node.server.channel.outgoing.OutgoingChannelPoolManager;
+import papyrus.channel.node.server.ethereum.TokenConvert;
 
 //TODO client authentication
 @Component
@@ -42,17 +49,18 @@ public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
     }
 
     @Override
-    public void addChannelPool(AddChannelPoolRequest request, StreamObserver<AddChannelPoolResponse> responseObserver) {
-        if (request.getMinActiveChannels() < 0 || request.getMinActiveChannels() > MAX_CHANNELS_PER_ADDRESS) {
-            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal min active channels: %d", request.getMinActiveChannels())).asException());
+    public void addChannelPool(AddChannelPoolRequest poolRequest, StreamObserver<AddChannelPoolResponse> responseObserver) {
+        ChannelPoolMessage pool = poolRequest.getPool();
+        if (pool.getMinActiveChannels() < 0 || pool.getMinActiveChannels() > MAX_CHANNELS_PER_ADDRESS) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal min active channels: %d", pool.getMinActiveChannels())).asException());
             return;
         }
-        if (request.getMaxActiveChannels() < 0 || request.getMaxActiveChannels() > MAX_CHANNELS_PER_ADDRESS) {
-            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal min active channels: %d", request.getMaxActiveChannels())).asException());
+        if (pool.getMaxActiveChannels() < 0 || pool.getMaxActiveChannels() > MAX_CHANNELS_PER_ADDRESS) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal min active channels: %d", pool.getMaxActiveChannels())).asException());
             return;
         }
         
-        ChannelPoolProperties properties = new ChannelPoolProperties(request);
+        ChannelPoolProperties properties = new ChannelPoolProperties(pool);
         
         if (properties.getBlockchainProperties().getSettleTimeout() < 6) {
             responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal settle timeout: %d", properties.getBlockchainProperties().getSettleTimeout())).asException());
@@ -64,9 +72,30 @@ public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
             return;
         }
         
-        outgoingChannelPoolManager.addPool(new Address(request.getSenderAddress()), new Address(request.getReceiverAddress()), properties);
+        outgoingChannelPoolManager.addPool(new Address(pool.getSenderAddress()), new Address(pool.getReceiverAddress()), properties);
         
         responseObserver.onNext(AddChannelPoolResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getChannelPools(GetChannelPoolsRequest request, StreamObserver<GetChannelPoolsResponse> responseObserver) {
+        Address senderAddress = new Address(request.getSenderAddress());
+        Address receiverAddress = !request.getReceiverAddress().isEmpty() ? new Address(request.getReceiverAddress()) : null;
+        Collection<OutgoingChannelPool> pools = outgoingChannelPoolManager.getPools(senderAddress, receiverAddress);
+        GetChannelPoolsResponse.Builder builder = GetChannelPoolsResponse.newBuilder();
+        for (OutgoingChannelPool pool : pools) {
+            ChannelPoolProperties properties = pool.getChannelProperties();
+            builder.addPool(ChannelPoolMessage.newBuilder()
+                .setDeposit(TokenConvert.fromWei(properties.getDeposit()).toString())
+                .setMinActiveChannels(properties.getMinActiveChannels())
+                .setMaxActiveChannels(properties.getMaxActiveChannels())
+                .setProperties(properties.getBlockchainProperties().toMessage())
+                .setReceiverAddress(pool.getReceiverAddress().toString())
+                .setSenderAddress(pool.getSenderAddress().toString())
+                .build());
+        }
+        responseObserver.onNext(builder.build());
         responseObserver.onCompleted();
     }
 

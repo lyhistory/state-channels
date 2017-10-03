@@ -4,7 +4,7 @@ import java.math.BigInteger;
 
 import org.web3j.utils.Convert;
 
-import papyrus.channel.node.AddChannelPoolRequest;
+import papyrus.channel.node.ChannelPoolMessage;
 import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.entity.DataObject;
 import papyrus.channel.node.server.ethereum.TokenConvert;
@@ -16,7 +16,7 @@ public class ChannelPoolProperties extends DataObject {
     private final BigInteger deposit;
     private final ChannelProperties blockchainProperties;
 
-    public ChannelPoolProperties(AddChannelPoolRequest request) {
+    public ChannelPoolProperties(ChannelPoolMessage request) {
         this(
             request.getMinActiveChannels(), 
             request.getMaxActiveChannels(),

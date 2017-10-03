@@ -1,6 +1,7 @@
 package papyrus.channel.node.server.channel.outgoing;
 
 import java.security.SignatureException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -172,5 +173,10 @@ public class OutgoingChannelPoolManager {
 
     public boolean requestCloseChannel(Address address) {
         return registry.get(address).map(OutgoingChannelState::requestClose).orElse(false);
+    }
+
+    public Collection<OutgoingChannelPool> getPools(Address senderAddress, Address receiverAddress) {
+        Map<Address, OutgoingChannelPool> poolMap = channelPools.get(senderAddress);
+        return receiverAddress == null ? poolMap.values() : Collections.singleton(poolMap.get(receiverAddress));
     }
 }

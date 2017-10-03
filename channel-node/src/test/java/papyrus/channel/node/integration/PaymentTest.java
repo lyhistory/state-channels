@@ -9,7 +9,7 @@ import org.web3j.crypto.Credentials;
 import org.web3j.crypto.Keys;
 
 import papyrus.channel.ChannelPropertiesMessage;
-import papyrus.channel.node.AddChannelPoolRequest;
+import papyrus.channel.node.ChannelPoolMessage;
 import papyrus.channel.node.RegisterTransfersRequest;
 import papyrus.channel.node.UnlockTransferRequest;
 import papyrus.channel.node.server.channel.SignedTransfer;
@@ -24,7 +24,7 @@ public class PaymentTest extends BaseChannelTest {
 
         BigDecimal deposit = new BigDecimal("0.01");
 
-        IncomingChannelState channelState = openChannel(AddChannelPoolRequest.newBuilder()
+        IncomingChannelState channelState = openChannel(ChannelPoolMessage.newBuilder()
             .setDeposit(deposit.toString())
             .build()
         );
@@ -65,7 +65,7 @@ public class PaymentTest extends BaseChannelTest {
 
         BigDecimal deposit = new BigDecimal("0.01");
 
-        IncomingChannelState channelState = openChannel(AddChannelPoolRequest.newBuilder()
+        IncomingChannelState channelState = openChannel(ChannelPoolMessage.newBuilder()
             .setDeposit(deposit.toString())
             .setProperties(
                 ChannelPropertiesMessage.newBuilder()

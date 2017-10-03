@@ -9,6 +9,7 @@ import org.web3j.crypto.Credentials;
 
 import papyrus.channel.ChannelPropertiesMessage;
 import papyrus.channel.node.AddChannelPoolRequest;
+import papyrus.channel.node.ChannelPoolMessage;
 import papyrus.channel.node.ChannelStatusRequest;
 import papyrus.channel.node.ChannelStatusResponse;
 import papyrus.channel.node.HealthCheckRequest;
@@ -34,7 +35,8 @@ public class ChannelClientTest {
 
         System.out.printf("Opening channel %s->%s%n", DSP_ADDRESS, SSP_ADDRESS);
 
-        AddChannelPoolRequest.Builder builder = AddChannelPoolRequest.newBuilder();
+        AddChannelPoolRequest.Builder requestBuilder = AddChannelPoolRequest.newBuilder();
+        ChannelPoolMessage.Builder builder = ChannelPoolMessage.newBuilder();
         builder.setSenderAddress(DSP_ADDRESS);
         builder.setReceiverAddress(SSP_ADDRESS);
         builder.setMinActiveChannels(1);
@@ -43,8 +45,9 @@ public class ChannelClientTest {
         ChannelPropertiesMessage.Builder propertiesBuilder = builder.getPropertiesBuilder();
         propertiesBuilder.setCloseTimeout(1);
         propertiesBuilder.setSettleTimeout(6);
-        
-        dsp.getClientAdmin().addChannelPool(builder.build());
+
+        requestBuilder.setPool(builder.build());
+        dsp.getClientAdmin().addChannelPool(requestBuilder.build());
 
         ChannelStatusResponse response = Util.waitFor(() ->
                 dsp.getOutgoingChannelClient().getChannels(

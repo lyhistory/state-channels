@@ -21,6 +21,7 @@ import com.google.common.base.Throwables;
 
 import papyrus.channel.ChannelPropertiesMessage;
 import papyrus.channel.node.AddChannelPoolRequest;
+import papyrus.channel.node.ChannelPoolMessage;
 import papyrus.channel.node.ChannelStatusRequest;
 import papyrus.channel.node.ChannelStatusResponse;
 import papyrus.channel.node.RegisterTransfersRequest;
@@ -69,49 +70,54 @@ public class BaseChannelTest {
 
     @Before
     public void init() throws IOException, CipherException, ExecutionException, InterruptedException {
+        initSender(true);
+        initReceiver();
+    }
+
+    void initSender() throws InterruptedException, ExecutionException {
+        initSender(false);
+    }
+    
+    private void initSender(boolean clean) throws InterruptedException, ExecutionException {
         sender = Util.createServerContext("sender");
-        receiver = Util.createServerContext("receiver");
-        
-        sender.getBean(DatabaseCleaner.class).clean();
-        
+        if (clean) sender.getBean(DatabaseCleaner.class).clean();
         sender.start();
-        receiver.start();
-
-
         senderClient = sender.getBean(PeerConnection.class);
         Assert.assertNotNull(senderClient);
+        senderCredentials = sender.getBean(EthereumConfig.class).getMainCredentials();
+        senderAddress = new Address(senderCredentials.getAddress());
+        clientCredentials = Credentials.create(sender.getBean(EthProperties.class).getAccounts().values().iterator().next().getClientPrivateKey());
+        Address clientAddress = sender.getBean(EthereumConfig.class).getClientAddress(senderAddress);
+        Assert.assertThat(clientAddress.toString(), CoreMatchers.equalTo(clientCredentials.getAddress()));
+        token = sender.getBean(ContractsManagerFactory.class).getMainContractManager().token();
+        senderStartBalance = token.balanceOf(senderAddress).get().getValue();
+    }
+
+    void initReceiver() throws InterruptedException, ExecutionException {
+        receiver = Util.createServerContext("receiver");
+        receiver.start();
+
         receiverClient = receiver.getBean(PeerConnection.class);
         Assert.assertNotNull(receiverClient);
 
-        senderCredentials = sender.getBean(EthereumConfig.class).getMainCredentials();
         receiverCredentials = receiver.getBean(EthereumConfig.class).getMainCredentials();
-        senderAddress = new Address(senderCredentials.getAddress());
         receiverAddress = new Address(receiverCredentials.getAddress());
-        clientCredentials = Credentials.create(sender.getBean(EthProperties.class).getAccounts().values().iterator().next().getClientPrivateKey());
-        
-        Address clientAddress = sender.getBean(EthereumConfig.class).getClientAddress(senderAddress);
-        Assert.assertThat(clientAddress.toString(), CoreMatchers.equalTo(clientCredentials.getAddress()));
-        
-        token = sender.getBean(ContractsManagerFactory.class).getMainContractManager().token();
-        senderStartBalance = token.balanceOf(senderAddress).get().getValue();
+
         receiverStartBalance = token.balanceOf(receiverAddress).get().getValue();
     }
 
     @After
     public void finish() throws IOException, CipherException {
-        if (sender != null) try {
-            sender.stop();
-            sender.getBean(NodeServer.class).awaitTermination();
+        stopContext(sender);
+        stopContext(receiver);
+    }
+
+    void stopContext(ConfigurableApplicationContext context) {
+        if (context != null) try {
+            context.stop();
+            context.getBean(NodeServer.class).awaitTermination();
         } catch (Exception e) {
             e.printStackTrace();
-        }
-        if (receiver != null) {
-            try {
-                receiver.stop();
-                receiver.getBean(NodeServer.class).awaitTermination();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         }
     }
 
@@ -143,10 +149,11 @@ public class BaseChannelTest {
         Util.assertBalance(expectedTotalTransferWei, token.balanceOf(receiverAddress).get().getValue().subtract(receiverStartBalance));
     }
 
-    IncomingChannelState openChannel(AddChannelPoolRequest request) throws InterruptedException, ExecutionException {
+    IncomingChannelState openChannel(ChannelPoolMessage request) throws InterruptedException, ExecutionException {
         BigDecimal deposit = new BigDecimal(request.getDeposit());
         
-        AddChannelPoolRequest.Builder builder = AddChannelPoolRequest.newBuilder();
+        AddChannelPoolRequest.Builder requestBuilder = AddChannelPoolRequest.newBuilder();
+        ChannelPoolMessage.Builder builder = ChannelPoolMessage.newBuilder();
         builder.setSenderAddress(senderAddress.toString());
         builder.setReceiverAddress(receiverAddress.toString());
         builder.setMinActiveChannels(1);
@@ -155,9 +162,11 @@ public class BaseChannelTest {
         propertiesBuilder.setCloseTimeout(1);
         propertiesBuilder.setSettleTimeout(6);
         builder.mergeFrom(request);
-        
+
+        requestBuilder.setPool(builder.build());
+
         senderClient.getClientAdmin().addChannelPool(
-            builder.build()
+            requestBuilder.build()
         );
 
         ChannelStatusResponse response = Util.waitFor(() -> 
