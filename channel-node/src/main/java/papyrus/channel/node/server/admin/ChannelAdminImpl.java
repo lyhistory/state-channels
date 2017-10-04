@@ -24,7 +24,6 @@ import papyrus.channel.node.RemoveChannelPoolResponse;
 import papyrus.channel.node.server.ServerIdService;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelManagers;
 import papyrus.channel.node.server.channel.outgoing.ChannelPoolProperties;
-import papyrus.channel.node.server.channel.outgoing.OutgoingChannelPool;
 import papyrus.channel.node.server.channel.outgoing.OutgoingChannelPoolManager;
 import papyrus.channel.node.server.ethereum.TokenConvert;
 
@@ -67,8 +66,8 @@ public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
             return;
         }
         
-        if (properties.getDeposit().signum() <= 0) {
-            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal deposit: %d", properties.getDeposit())).asException());
+        if (properties.getPolicy().getDeposit().signum() <= 0) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(String.format("Illegal deposit: %d", properties.getPolicy().getDeposit())).asException());
             return;
         }
         
@@ -82,17 +81,16 @@ public class ChannelAdminImpl extends ChannelAdminGrpc.ChannelAdminImplBase {
     public void getChannelPools(GetChannelPoolsRequest request, StreamObserver<GetChannelPoolsResponse> responseObserver) {
         Address senderAddress = new Address(request.getSenderAddress());
         Address receiverAddress = !request.getReceiverAddress().isEmpty() ? new Address(request.getReceiverAddress()) : null;
-        Collection<OutgoingChannelPool> pools = outgoingChannelPoolManager.getPools(senderAddress, receiverAddress);
+        Collection<ChannelPoolProperties> pools = outgoingChannelPoolManager.getPools(senderAddress, receiverAddress);
         GetChannelPoolsResponse.Builder builder = GetChannelPoolsResponse.newBuilder();
-        for (OutgoingChannelPool pool : pools) {
-            ChannelPoolProperties properties = pool.getChannelProperties();
+        for (ChannelPoolProperties properties : pools) {
             builder.addPool(ChannelPoolMessage.newBuilder()
-                .setDeposit(TokenConvert.fromWei(properties.getDeposit()).toString())
+                .setDeposit(TokenConvert.fromWei(properties.getPolicy().getDeposit()).toString())
                 .setMinActiveChannels(properties.getMinActiveChannels())
                 .setMaxActiveChannels(properties.getMaxActiveChannels())
                 .setProperties(properties.getBlockchainProperties().toMessage())
-                .setReceiverAddress(pool.getReceiverAddress().toString())
-                .setSenderAddress(pool.getSenderAddress().toString())
+                .setReceiverAddress(properties.getReceiver().toString())
+                .setSenderAddress(properties.getSender().toString())
                 .build());
         }
         responseObserver.onNext(builder.build());

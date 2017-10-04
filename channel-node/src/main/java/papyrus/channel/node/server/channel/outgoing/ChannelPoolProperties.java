@@ -1,7 +1,6 @@
 package papyrus.channel.node.server.channel.outgoing;
 
-import java.math.BigInteger;
-
+import org.web3j.abi.datatypes.Address;
 import org.web3j.utils.Convert;
 
 import papyrus.channel.node.ChannelPoolMessage;
@@ -10,40 +9,61 @@ import papyrus.channel.node.entity.DataObject;
 import papyrus.channel.node.server.ethereum.TokenConvert;
 
 public class ChannelPoolProperties extends DataObject {
-    
+    private final Address sender;
+    private final Address receiver;
     private final int minActiveChannels;
     private final int maxActiveChannels;
-    private final BigInteger deposit;
+    private final boolean shutdown;
+    private final OutgoingChannelPolicy policy;
     private final ChannelProperties blockchainProperties;
 
     public ChannelPoolProperties(ChannelPoolMessage request) {
         this(
+            new Address(request.getSenderAddress()),
+            new Address(request.getReceiverAddress()),
             request.getMinActiveChannels(), 
             request.getMaxActiveChannels(),
-            Convert.toWei(request.getDeposit(), Convert.Unit.ETHER).toBigIntegerExact(), 
+            false, 
+            new OutgoingChannelPolicy(Convert.toWei(request.getDeposit(), Convert.Unit.ETHER).toBigIntegerExact()), 
             new ChannelProperties(request.getProperties())
         );
     }
     
     public ChannelPoolProperties(OutgoingChannelPoolBean bean) {
         this(
+            bean.getSender(),
+            bean.getReceiver(),
             bean.getMinActive(), 
-            bean.getMaxActive(), 
-            TokenConvert.toWei(bean.getDeposit()), 
+            bean.getMaxActive(),
+            bean.isShutdown(), 
+            new OutgoingChannelPolicy(TokenConvert.toWei(bean.getDeposit())), 
             new ChannelProperties(bean)
         );
     }
     
     public ChannelPoolProperties(
-        int minActiveChannels, 
-        int maxActiveChannels, 
-        BigInteger deposit, 
+        Address sender,
+        Address receiver,
+        int minActiveChannels,
+        int maxActiveChannels,
+        boolean shutdown, OutgoingChannelPolicy policy,
         ChannelProperties blockchainProperties
     ) {
+        this.sender = sender;
+        this.receiver = receiver;
         this.minActiveChannels = minActiveChannels;
         this.maxActiveChannels = maxActiveChannels;
-        this.deposit = deposit;
+        this.shutdown = shutdown;
+        this.policy = policy;
         this.blockchainProperties = blockchainProperties;
+    }
+    
+    public Address getSender() {
+        return sender;
+    }
+
+    public Address getReceiver() {
+        return receiver;
     }
 
     public int getMinActiveChannels() {
@@ -54,11 +74,15 @@ public class ChannelPoolProperties extends DataObject {
         return maxActiveChannels;
     }
 
-    public BigInteger getDeposit() {
-        return deposit;
+    public OutgoingChannelPolicy getPolicy() {
+        return policy;
     }
 
     public ChannelProperties getBlockchainProperties() {
         return blockchainProperties;
+    }
+
+    public boolean isShutdown() {
+        return shutdown;
     }
 }

@@ -1,11 +1,13 @@
 package papyrus.channel.node.integration;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 
 import papyrus.channel.node.ChannelPoolMessage;
 import papyrus.channel.node.ChannelStatusMessage;
@@ -44,5 +46,10 @@ public class PersistenceTest extends BaseChannelTest {
         ).getChannelList();
 
         Assert.assertEquals(1, channelList.size());
+    }
+
+    @Override
+    protected void configureContext(SpringApplicationBuilder builder) {
+        builder.properties(Collections.singletonMap("eth.sync", "true"));
     }
 }

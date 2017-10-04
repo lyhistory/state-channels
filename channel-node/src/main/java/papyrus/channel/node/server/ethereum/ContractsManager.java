@@ -18,7 +18,6 @@ import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.Response;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.tx.Contract;
-import org.web3j.tx.RawTransactionManager;
 import org.web3j.tx.TransactionManager;
 
 import com.google.common.base.Preconditions;
@@ -43,10 +42,10 @@ public class ContractsManager {
     private final TokenService tokenService;
     private final Address address;
 
-    public ContractsManager(EthRpcProperties rpcProperties, Web3j web3j, Credentials credentials, ContractsProperties contractsProperties) {
+    public ContractsManager(EthRpcProperties rpcProperties, Web3j web3j, Credentials credentials, ContractsProperties contractsProperties, TransactionManager transactionManager) {
         this.web3j = web3j;
         this.rpcProperties = rpcProperties;
-        this.transactionManager = new RawTransactionManager(web3j, credentials, rpcProperties.getAttempts(), (int) rpcProperties.getSleep().toMillis());
+        this.transactionManager = transactionManager;
         this.contractsProperties = contractsProperties;
 
         log.info("Configuring pre deployed contracts {}", contractsProperties.getAddress());

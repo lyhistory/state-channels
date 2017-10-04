@@ -105,7 +105,7 @@ public class OutgoingChannelState {
     public void startDeploying(CompletableFuture<ChannelContract> deployingContract) {
         checkStatus(Status.NEW);
         checkNotNull(deployingContract);
-        startTransition(Status.CREATED, deployingContract, contract -> channel.linkNewContract(contract));
+        startTransition(Status.CREATED, deployingContract);
     }
 
     private void checkStatus(Status... expected) {
@@ -254,7 +254,7 @@ public class OutgoingChannelState {
     }
 
     public void doClose() {
-        checkStatus(Status.CREATED, Status.ACTIVE);
+        checkStatus(Status.OPENED, Status.CREATED, Status.ACTIVE);
         startTransition(Status.CLOSED, 
             channel.getContract().close(
                 new Uint256(currentNonce),

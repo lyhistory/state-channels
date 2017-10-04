@@ -40,7 +40,7 @@ public class OutgoingChannelPoolBean {
         this.auditor = config.getBlockchainProperties().getAuditor().orElse(null);
         this.minActive = config.getMinActiveChannels();
         this.maxActive = config.getMaxActiveChannels();
-        this.deposit = TokenConvert.fromWei(config.getDeposit());
+        this.deposit = TokenConvert.fromWei(config.getPolicy().getDeposit());
         this.closeTimeout = config.getBlockchainProperties().getCloseTimeout();
         this.settleTimeout = config.getBlockchainProperties().getSettleTimeout();
     }

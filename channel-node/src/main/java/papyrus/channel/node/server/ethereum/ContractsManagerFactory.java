@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.CipherException;
 import org.web3j.protocol.Web3j;
+import org.web3j.tx.TransactionManager;
 
 import papyrus.channel.node.config.ContractsProperties;
 import papyrus.channel.node.config.EthProperties;
@@ -27,7 +28,8 @@ public class ContractsManagerFactory {
         managerMap = new HashMap<>();
 
         for (Address address : config.getAddresses()) {
-            managerMap.put(address, new ContractsManager(properties.getRpc(), web3j, config.getCredentials(address), contractsProperties));
+            TransactionManager transactionManager = config.getTransactionManager(address);
+            managerMap.put(address, new ContractsManager(properties.getRpc(), web3j, config.getCredentials(address), contractsProperties, transactionManager));
         }
     }
 

@@ -26,7 +26,6 @@ public class OutgoingChannelClientImpl extends OutgoingChannelClientGrpc.Outgoin
     private static final Logger log = LoggerFactory.getLogger(OutgoingChannelClientImpl.class);
     
     private OutgoingChannelPoolManager manager;
-    private OutgoingChannelRegistry registry;
 
     public OutgoingChannelClientImpl(OutgoingChannelPoolManager manager) {
         this.manager = manager;
@@ -36,14 +35,16 @@ public class OutgoingChannelClientImpl extends OutgoingChannelClientGrpc.Outgoin
     public void getChannels(ChannelStatusRequest request, StreamObserver<ChannelStatusResponse> responseObserver) {
         ChannelStatusResponse.Builder builder = ChannelStatusResponse.newBuilder();
         for (OutgoingChannelState state : manager.getChannels(new Address(request.getSenderAddress()), new Address(request.getReceiverAddress()))) {
-            builder.addChannel(ChannelStatusMessage.newBuilder()
-                .setActive(true)
-                .setChannelAddress(state.getChannelAddress().toString())
-                .setProperties(
-                    state.getChannel().getProperties().toMessage()
-                )
-                .build()
-            );
+            if (state.isActive()) {
+                builder.addChannel(ChannelStatusMessage.newBuilder()
+                    .setActive(true)
+                    .setChannelAddress(state.getChannelAddress().toString())
+                    .setProperties(
+                        state.getChannel().getProperties().toMessage()
+                    )
+                    .build()
+                );
+            }
         }
         responseObserver.onNext(builder.build());
         responseObserver.onCompleted();

@@ -2,8 +2,11 @@ package papyrus.channel.node.server.channel.outgoing;
 
 import java.net.UnknownHostException;
 import java.security.SignatureException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -11,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.annotation.PreDestroy;
 
@@ -18,6 +22,7 @@ import org.apache.http.conn.HttpHostConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -27,6 +32,7 @@ import org.web3j.abi.datatypes.DynamicArray;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.google.common.base.Throwables;
 
+import papyrus.channel.node.config.EthProperties;
 import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.ChannelManagerContract;
 import papyrus.channel.node.entity.ChannelProperties;
@@ -35,15 +41,16 @@ import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 import papyrus.channel.node.server.ethereum.EthereumService;
-import papyrus.channel.node.server.ethereum.TokenConvert;
 import papyrus.channel.node.server.peer.PeerConnectionManager;
 import papyrus.channel.node.util.Retriable;
 
+@EnableConfigurationProperties(EthProperties.class)
 @Component
 public class OutgoingChannelPoolManager {
     private static final Logger log = LoggerFactory.getLogger(OutgoingChannelPoolManager.class);
     
-    private final Map<Address, Map<Address, OutgoingChannelPool>> channelPools = new ConcurrentHashMap<>();
+    private final Map<Address, Map<Address, ChannelPoolProperties>> channelPools = new ConcurrentHashMap<>();
+    private final Thread watchThread;
 
     @Autowired
     private EthereumService ethereumService;
@@ -54,20 +61,84 @@ public class OutgoingChannelPoolManager {
     @Autowired
     private EthereumConfig ethereumConfig;
     @Autowired
-    private OutgoingChannelRegistry registry;
+    private OutgoingChannelCoordinator registry;
     @Autowired
     private OutgoingChannelPoolRepository poolRepository;
     @Autowired
     private OutgoingChannelRepository channelRepository;
     @Autowired
     private ScheduledExecutorService executorService;
+    @Autowired
+    private EthProperties ethProperties;
+
+    public OutgoingChannelPoolManager() {
+        this.watchThread = new Thread(this::cycle,"Channel pool watcher");
+    }
+
+    private void cycle() {
+        while (!Thread.interrupted()) {
+            try {
+                Map<Address, Map<Address, List<OutgoingChannelState>>> indexed = new HashMap<>();
+                registry.all().forEach(
+                    channel -> indexed.computeIfAbsent(channel.getChannel().getSenderAddress(), sender -> new HashMap<>())
+                        .computeIfAbsent(channel.getChannel().getReceiverAddress(), receiver -> new ArrayList<>())
+                        .add(channel)
+                );
+                indexed.forEach((sender, map) -> map.forEach((receiver,channels) -> managePool(sender, receiver, channels)));
+                channelPools.forEach((sender, map) -> map.forEach((receiver,conf) -> {
+                    if (indexed.get(sender) == null || indexed.get(sender).get(receiver) == null) {
+                        managePool(sender, receiver, Collections.emptyList());
+                    }
+                }));
+
+                Thread.sleep(1000L);
+            } catch (InterruptedException e) {
+                break;
+            } catch (Throwable e) {
+                log.error("Cycle failed", e);
+                try {
+                    Thread.sleep(1000L);
+                } catch (InterruptedException e1) {
+                    break;
+                }
+            }
+        }
+    }
+
+    private void managePool(Address senderAddress, Address receiverAddress, List<OutgoingChannelState> channels) {
+        ChannelPoolProperties channelProperties = getProperties(senderAddress, receiverAddress);
+        if (channelProperties == null) {
+            channels.stream()
+                .filter(ch -> ch.isActive() && ch.getOpenBlock() > 0)
+                .sorted(Comparator.comparing(OutgoingChannelState::getOpenBlock))
+                .forEach(c -> registry.setPolicy(c, OutgoingChannelPolicy.NONE));
+        } else {
+            channels.forEach(c -> registry.setPolicy(c, channelProperties.getPolicy()));
+            long notClosedOrClosing = channels.stream().filter(c -> !c.isClosed()).count();
+            if (notClosedOrClosing < channelProperties.getMinActiveChannels()) {
+                Address clientAddress = ethereumConfig.getClientAddress(senderAddress);
+                OutgoingChannelState newChannel = new OutgoingChannelState(senderAddress, clientAddress, receiverAddress, channelProperties.getBlockchainProperties());
+                registry.register(newChannel, channelProperties.getPolicy());
+            }
+            long active = channels.stream().filter(OutgoingChannelState::isActive).count();
+            if (active > channelProperties.getMaxActiveChannels()) {
+                channels.stream()
+                    .filter(ch -> ch.isActive() && ch.getOpenBlock() > 0)
+                    .sorted(Comparator.comparing(OutgoingChannelState::getOpenBlock))
+                    .limit(active - channelProperties.getMaxActiveChannels())
+                    .forEach(registry::closeChannel);
+            }
+        }
+    }
 
     @EventListener(ContextStartedEvent.class)
     public void start() throws Exception {
-        Retriable.wrapTask(this::syncBlockchainChannels)
-            .withErrorMessage("Failed to load channels from blockchain")
-            .retryOn(HttpHostConnectException.class)
-            .call();
+        if (ethProperties.isSync()) {
+            Retriable.wrapTask(this::syncBlockchainChannels)
+                .withErrorMessage("Failed to load channels from blockchain")
+                .retryOn(HttpHostConnectException.class)
+                .call();
+        }
 
         Retriable.wrapTask(() -> {
             loadPools();
@@ -77,32 +148,35 @@ public class OutgoingChannelPoolManager {
         .withErrorMessage("Failed to load state from persistent store")
         .call();
         
-        executorService.scheduleWithFixedDelay(this::cleanup, 1, 1, TimeUnit.SECONDS);
         executorService.scheduleWithFixedDelay(this::syncBlockchainChannels, 60, 60, TimeUnit.SECONDS);
+
+        watchThread.start();
     }
 
+    @PreDestroy
+    public void destroy() throws InterruptedException {
+        //TODO close all channels
+        watchThread.interrupt();
+        watchThread.join();
+    }
+    
     private void loadPools() {
         for (OutgoingChannelPoolBean bean : poolRepository.all()) {
-            OutgoingChannelPool pool = createOrUpdatePool(
-                bean.getSender(),
-                bean.getReceiver(),
-                new ChannelPoolProperties(bean.getMinActive(), bean.getMaxActive(), TokenConvert.toWei(bean.getDeposit()), new ChannelProperties())
-            );
-            
-            registry.all().stream()
-                .filter(s -> s.getChannel().getSenderAddress().equals(bean.getSender()))
-                .filter(s -> s.getChannel().getReceiverAddress().equals(bean.getReceiver()))
-                .forEach(pool::addChannel);
-            
-            if (bean.isShutdown()) {
-                pool.shutdown();
+            if (!ethereumConfig.hasAddress(bean.getSender())) {
+                log.warn("Address is not managed, skipping pool: " + bean.getSender());
+            } else {
+                createOrUpdatePool(
+                    bean.getSender(),
+                    bean.getReceiver(),
+                    new ChannelPoolProperties(bean)
+                );
             }
         }
     }
 
     private void loadChannels() {
         for (OutgoingChannelBean bean : channelRepository.all()) {
-            Optional<OutgoingChannelState> state = registry.get(bean.getAddress());
+            Optional<OutgoingChannelState> state = registry.getChannel(bean.getAddress());
             if (!state.isPresent()) {
                 log.warn("Channel disappeared from blockchain: {}", bean.getAddress());
             } else {
@@ -120,12 +194,13 @@ public class OutgoingChannelPoolManager {
                 for (Address address : value) {
                     OutgoingChannelState state = registry.loadChannel(address);
                     BlockchainChannel channel = state.getChannel();
+                    if (state.getStatus() == OutgoingChannelState.Status.SETTLED) continue;
                     log.info("Loaded {} channel from blockchain: {}", state.getStatus(), channel);
-                    Optional<OutgoingChannelState> existingState = registry.get(address);
+                    Optional<OutgoingChannelState> existingState = registry.getChannel(address);
                     if (existingState.isPresent()) {
                         existingState.get().updateBlockchainState(state);
                     } else {
-                        registry.setAddress(state, state.getChannelAddress());
+                        registry.register(state, getPolicy(senderAddress, state.getChannel().getReceiverAddress()));
                     }
                 }
             }
@@ -137,21 +212,19 @@ public class OutgoingChannelPoolManager {
         }
     }
 
-    @PreDestroy
-    public void destroy() {
-        channelPools.values().stream().flatMap(m -> m.values().stream()).forEach(OutgoingChannelPool::destroy);
+    
+    public OutgoingChannelPolicy getPolicy(Address sender, Address receiver) {
+        ChannelPoolProperties properties = getProperties(sender, receiver);
+        return properties != null ? properties.getPolicy() : OutgoingChannelPolicy.NONE;
     }
 
+    public ChannelPoolProperties getProperties(Address sender, Address receiver) {
+        Map<Address, ChannelPoolProperties> map = channelPools.get(sender);
+        return map != null ? map.get(receiver) : null;
+    }
+    
     public List<OutgoingChannelState> getChannels(Address sender, Address receiver) {
-
-        Map<Address, OutgoingChannelPool> poolMap = channelPools.get(sender);
-        if (poolMap == null) return Collections.emptyList();
-        
-        OutgoingChannelPool pool = poolMap.get(receiver);
-        if (pool == null) {
-            return Collections.emptyList();
-        }
-        return pool.getChannelsState();
+        return registry.getByParticipants(sender, receiver).collect(Collectors.toList());
     }
 
     public void addPool(Address sender, Address receiver, ChannelPoolProperties config) {
@@ -160,58 +233,19 @@ public class OutgoingChannelPoolManager {
         createOrUpdatePool(sender, receiver, config);
     }
 
-    private OutgoingChannelPool createOrUpdatePool(Address sender, Address receiver, ChannelPoolProperties config) {
+    private void createOrUpdatePool(Address sender, Address receiver, ChannelPoolProperties config) {
         ethereumConfig.checkAddress(sender);
-        return channelPools.computeIfAbsent(sender, a -> new ConcurrentHashMap<>()).compute(receiver, (addr, channelPool)->{
-            if (channelPool == null) {
-                Address clientAddress = ethereumConfig.getClientAddress(sender);
-                log.info("Adding pool {}->{}, client: {}: {}", 
-                    sender,
-                    receiver,
-                    clientAddress, 
-                    config
-                );
-                channelPool = new OutgoingChannelPool(
-                    registry, 
-                    config,
-                    ethereumService,
-                    contractsManagerFactory.getContractManager(sender),
-                    peerConnectionManager,
-                    channelRepository, 
-                    ethereumConfig.getCredentials(sender),
-                    clientAddress, 
-                    receiver
-                );
-
-                channelPool.start();
-                return channelPool;
-            }
-            channelPool.cancelShutdown();
-            channelPool.setChannelProperties(config);
-            return channelPool;
-        });
+        channelPools.computeIfAbsent(sender, a -> new ConcurrentHashMap<>()).put(receiver, config);
     }
 
     public void removePool(Address sender, Address receiver) {
-        Map<Address, OutgoingChannelPool> poolMap = channelPools.get(sender);
+        Map<Address, ChannelPoolProperties> poolMap = channelPools.get(sender);
         if (poolMap == null) return;
-        OutgoingChannelPool manager = poolMap.get(receiver);
-        if (manager != null) {
-            poolRepository.markShutdown(sender, receiver);
-            manager.shutdown();
-        }
+        poolMap.remove(receiver);
     }
     
-    private void cleanup() {
-        channelPools.values().stream().flatMap(m -> m.values().stream()).forEach(mgr -> {
-            if (mgr.isFinished()) {
-                mgr.destroy();
-            }
-        });
-    }
-
     public void registerTransfer(SignedTransfer signedTransfer) throws SignatureException {
-        OutgoingChannelState channelState = registry.get(signedTransfer.getChannelAddress()).orElseThrow(
+        OutgoingChannelState channelState = registry.getChannel(signedTransfer.getChannelAddress()).orElseThrow(
             () -> new IllegalStateException("Unknown channel address: " + signedTransfer.getChannelAddress())
         );
         signedTransfer.verifySignature(channelState.getChannel().getClientAddress());
@@ -219,7 +253,7 @@ public class OutgoingChannelPoolManager {
     }
 
     public void registerTransferUnlock(SignedTransferUnlock transferUnlock) {
-        OutgoingChannelState channelState = registry.get(transferUnlock.getChannelAddress()).orElseThrow(
+        OutgoingChannelState channelState = registry.getChannel(transferUnlock.getChannelAddress()).orElseThrow(
             () -> new IllegalStateException("Unknown channel address: " + transferUnlock.getChannelAddress())
         );
         ChannelProperties properties = channelState.getChannel().getProperties();
@@ -234,11 +268,11 @@ public class OutgoingChannelPoolManager {
     }
 
     public boolean requestCloseChannel(Address address) {
-        return registry.get(address).map(OutgoingChannelState::requestClose).orElse(false);
+        return registry.getChannel(address).map(OutgoingChannelState::requestClose).orElse(false);
     }
 
-    public Collection<OutgoingChannelPool> getPools(Address senderAddress, Address receiverAddress) {
-        Map<Address, OutgoingChannelPool> poolMap = channelPools.get(senderAddress);
+    public Collection<ChannelPoolProperties> getPools(Address senderAddress, Address receiverAddress) {
+        Map<Address, ChannelPoolProperties> poolMap = channelPools.get(senderAddress);
         return receiverAddress == null ? poolMap.values() : Collections.singleton(poolMap.get(receiverAddress));
     }
 }

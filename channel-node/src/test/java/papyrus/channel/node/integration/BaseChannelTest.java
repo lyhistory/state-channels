@@ -11,6 +11,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.springframework.beans.BeansException;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.CipherException;
@@ -21,6 +22,7 @@ import com.google.common.base.Throwables;
 
 import papyrus.channel.ChannelPropertiesMessage;
 import papyrus.channel.node.AddChannelPoolRequest;
+import papyrus.channel.node.ChannelNodeApplication;
 import papyrus.channel.node.ChannelPoolMessage;
 import papyrus.channel.node.ChannelStatusRequest;
 import papyrus.channel.node.ChannelStatusResponse;
@@ -35,7 +37,7 @@ import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelManagers;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelState;
-import papyrus.channel.node.server.channel.outgoing.OutgoingChannelRegistry;
+import papyrus.channel.node.server.channel.outgoing.OutgoingChannelCoordinator;
 import papyrus.channel.node.server.channel.outgoing.OutgoingChannelState;
 import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 import papyrus.channel.node.server.ethereum.TokenConvert;
@@ -79,7 +81,7 @@ public class BaseChannelTest {
     }
     
     private void initSender(boolean clean) throws InterruptedException, ExecutionException {
-        sender = Util.createServerContext("sender");
+        sender = createContext("sender");
         if (clean) sender.getBean(DatabaseCleaner.class).clean();
         sender.start();
         senderClient = sender.getBean(PeerConnection.class);
@@ -93,8 +95,20 @@ public class BaseChannelTest {
         senderStartBalance = token.balanceOf(senderAddress).get().getValue();
     }
 
+    protected ConfigurableApplicationContext createContext(String context) {
+        SpringApplicationBuilder builder = new SpringApplicationBuilder()
+            .sources(ChannelNodeApplication.class)
+            .main(ChannelNodeApplication.class)
+            .profiles("test", "testrpc", context);
+        configureContext(builder);
+        return builder.build().run();
+    }
+
+    protected void configureContext(SpringApplicationBuilder builder) {
+    }
+
     void initReceiver() throws InterruptedException, ExecutionException {
-        receiver = Util.createServerContext("receiver");
+        receiver = createContext("receiver");
         receiver.start();
 
         receiverClient = receiver.getBean(PeerConnection.class);
@@ -179,6 +193,7 @@ public class BaseChannelTest {
             r -> !r.getChannelList().isEmpty()
         );
 
+        Assert.assertEquals(1, response.getChannelCount());
         response.getChannel(0).getChannelAddress();
 
         IncomingChannelState channelState = Util.waitFor(
@@ -228,7 +243,7 @@ public class BaseChannelTest {
             .build()
         ).getError());
 
-        OutgoingChannelState outgoingChannelState = sender.getBean(OutgoingChannelRegistry.class).get(channelState.getChannelAddress()).get();
+        OutgoingChannelState outgoingChannelState = sender.getBean(OutgoingChannelCoordinator.class).getChannel(channelState.getChannelAddress()).get();
 
         Util.waitFor(() -> !outgoingChannelState.getLockedTransfers().isEmpty());
 

@@ -15,12 +15,12 @@ import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.WalletUtils;
 import org.web3j.protocol.Web3j;
-import org.web3j.tx.RawTransactionManager;
-import org.web3j.tx.TransactionManager;
 import org.web3j.utils.Numeric;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+
+import papyrus.channel.node.server.ethereum.ThreadsafeTransactionManager;
 
 @EnableConfigurationProperties({EthProperties.class, ContractsProperties.class})
 @Configuration
@@ -30,7 +30,7 @@ public class EthereumConfig {
     private EthProperties properties;
     private final Map<Address, EthKeyProperties> keyProperties;
     private final Map<Address, Credentials> credentialsMap;
-    private final Map<Address, TransactionManager> transactionManagerMap;
+    private final Map<Address, ThreadsafeTransactionManager> transactionManagerMap;
     private final Credentials mainCredentials;
 
     @Autowired
@@ -53,7 +53,7 @@ public class EthereumConfig {
             Address address = new Address(credentials.getAddress());
             keyProperties.put(address, key);
             credentialsMap.put(address, credentials);
-            RawTransactionManager transactionManager = new RawTransactionManager(web3j, credentials, rpc.getAttempts(), (int) rpc.getSleep().toMillis());
+            ThreadsafeTransactionManager transactionManager = new ThreadsafeTransactionManager(web3j, credentials, rpc);
             transactionManagerMap.put(address, transactionManager);
         }
         
@@ -91,9 +91,13 @@ public class EthereumConfig {
     }
 
     public void checkAddress(Address address) {
-        if (!credentialsMap.containsKey(address)) {
+        if (!hasAddress(address)) {
             throw new IllegalArgumentException("Account " + address + " is not managed");
         }
+    }
+    
+    public boolean hasAddress(Address address) {
+        return credentialsMap.containsKey(address);
     }
 
     public Credentials getMainCredentials() {
@@ -104,7 +108,7 @@ public class EthereumConfig {
         return new Address(getMainCredentials().getAddress());
     }
 
-    public TransactionManager getTransactionManager(Address address) {
+    public ThreadsafeTransactionManager getTransactionManager(Address address) {
         checkAddress(address);
         return transactionManagerMap.get(address);
     }
@@ -122,4 +126,5 @@ public class EthereumConfig {
     public Credentials getCredentials(Address address) {
         return credentialsMap.get(address);
     }
+
 }
