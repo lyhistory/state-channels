@@ -9,8 +9,10 @@ import './ChannelManagerContract.sol';
 library ChannelLibrary {
     
     struct Data {
+        uint close_timeout;
         uint settle_timeout;
         uint opened;
+        uint close_requested;
         uint closed;
         uint settled;
         ChannelManagerContract manager;
@@ -88,6 +90,14 @@ library ChannelLibrary {
         return (false, 0);
     }
 
+    function request_close(
+        Data storage self
+    ) {
+        require(msg.sender == self.sender || msg.sender == self.receiver);
+        require(self.close_requested == 0);
+        self.close_requested = block.number;
+    }
+
     function close(
         Data storage self,
         address channel_address,
@@ -96,6 +106,10 @@ library ChannelLibrary {
         bytes signature
     )
     {
+        if (self.close_timeout > 0) {
+            require(self.close_requested > 0);
+            require(block.number - self.close_requested >= self.close_timeout);
+        }
         require(nonce > self.nonce);
         require(completed_transfers >= self.completed_transfers);
         require(completed_transfers <= self.balance);

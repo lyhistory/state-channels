@@ -24,7 +24,7 @@ public class ChannelPoolProperties extends DataObject {
             request.getMinActiveChannels(), 
             request.getMaxActiveChannels(),
             false, 
-            new OutgoingChannelPolicy(Convert.toWei(request.getDeposit(), Convert.Unit.ETHER).toBigIntegerExact()), 
+            new OutgoingChannelPolicy(Convert.toWei(request.getDeposit(), Convert.Unit.ETHER).toBigIntegerExact(), request.getCloseBlocksCount()), 
             new ChannelProperties(request.getProperties())
         );
     }
@@ -36,7 +36,7 @@ public class ChannelPoolProperties extends DataObject {
             bean.getMinActive(), 
             bean.getMaxActive(),
             bean.isShutdown(), 
-            new OutgoingChannelPolicy(TokenConvert.toWei(bean.getDeposit())), 
+            new OutgoingChannelPolicy(TokenConvert.toWei(bean.getDeposit()), bean.getCloseBlocksCount()), 
             new ChannelProperties(bean)
         );
     }

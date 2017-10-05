@@ -163,7 +163,7 @@ public class BaseChannelTest {
         Util.assertBalance(expectedTotalTransferWei, token.balanceOf(receiverAddress).get().getValue().subtract(receiverStartBalance));
     }
 
-    IncomingChannelState openChannel(ChannelPoolMessage request) throws InterruptedException, ExecutionException {
+    IncomingChannelState createPool(ChannelPoolMessage request) throws InterruptedException, ExecutionException {
         BigDecimal deposit = new BigDecimal(request.getDeposit());
         
         AddChannelPoolRequest.Builder requestBuilder = AddChannelPoolRequest.newBuilder();
@@ -172,8 +172,9 @@ public class BaseChannelTest {
         builder.setReceiverAddress(receiverAddress.toString());
         builder.setMinActiveChannels(1);
         builder.setMaxActiveChannels(1);
+        builder.setCloseBlocksCount(10);
         ChannelPropertiesMessage.Builder propertiesBuilder = builder.getPropertiesBuilder();
-        propertiesBuilder.setCloseTimeout(1);
+        propertiesBuilder.setCloseTimeout(6);
         propertiesBuilder.setSettleTimeout(6);
         builder.mergeFrom(request);
 

@@ -13,7 +13,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import javax.annotation.PreDestroy;
@@ -114,7 +113,7 @@ public class OutgoingChannelPoolManager {
                 .forEach(c -> registry.setPolicy(c, OutgoingChannelPolicy.NONE));
         } else {
             channels.forEach(c -> registry.setPolicy(c, channelProperties.getPolicy()));
-            long notClosedOrClosing = channels.stream().filter(c -> !c.isClosed()).count();
+            long notClosedOrClosing = channels.stream().filter(c -> !c.isCloseRequested()).count();
             if (notClosedOrClosing < channelProperties.getMinActiveChannels()) {
                 Address clientAddress = ethereumConfig.getClientAddress(senderAddress);
                 OutgoingChannelState newChannel = new OutgoingChannelState(senderAddress, clientAddress, receiverAddress, channelProperties.getBlockchainProperties());
@@ -126,7 +125,7 @@ public class OutgoingChannelPoolManager {
                     .filter(ch -> ch.isActive() && ch.getOpenBlock() > 0)
                     .sorted(Comparator.comparing(OutgoingChannelState::getOpenBlock))
                     .limit(active - channelProperties.getMaxActiveChannels())
-                    .forEach(registry::closeChannel);
+                    .forEach(OutgoingChannelState::setNeedClose);
             }
         }
     }
@@ -148,7 +147,7 @@ public class OutgoingChannelPoolManager {
         .withErrorMessage("Failed to load state from persistent store")
         .call();
         
-        executorService.scheduleWithFixedDelay(this::syncBlockchainChannels, 60, 60, TimeUnit.SECONDS);
+//        executorService.scheduleWithFixedDelay(this::syncBlockchainChannels, 60, 60, TimeUnit.SECONDS);
 
         watchThread.start();
     }
@@ -268,7 +267,7 @@ public class OutgoingChannelPoolManager {
     }
 
     public boolean requestCloseChannel(Address address) {
-        return registry.getChannel(address).map(OutgoingChannelState::requestClose).orElse(false);
+        return registry.getChannel(address).map(OutgoingChannelState::setNeedClose).orElse(false);
     }
 
     public Collection<ChannelPoolProperties> getPools(Address senderAddress, Address receiverAddress) {

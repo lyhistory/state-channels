@@ -129,10 +129,6 @@ public class OutgoingChannelCoordinator {
         }
     }
 
-    public void closeChannel(OutgoingChannelState state) {
-        state.requestClose();
-    }
-
     private static String watcherName(OutgoingChannelState channel) {
         return "Channel watcher " + channel.getAddressSafe() + " from:" + channel.getChannel().getSenderAddress() + " to:" + channel.getChannel().getReceiverAddress();
     }
@@ -172,11 +168,14 @@ public class OutgoingChannelCoordinator {
                     try {
                         if (channel.checkTransitionInProgress()) continue;
 
-                        if (!channel.isClosed() && policy.isNone()) {
+                        if (channel.isNeedsSync()) {
+                            //TODO make async call
+                            syncChannel();
+                        }
+                        
+                        if (!channel.isCloseRequested() && policy.isNone()) {
                             log.info("No policy defined for channel {}, closing it", channel);
-                            closeChannel();
-                        } else if (channel.isCloseRequested() && !channel.isNeedsSync()) {
-                            closeChannel();
+                            channel.setNeedClose();
                         } else {
                             makeTransitions();
                         }
@@ -205,47 +204,54 @@ public class OutgoingChannelCoordinator {
             }
         }
 
-        private void closeChannel() {
-            switch (channel.getStatus()) {
-                case NEW:
-                    channel.makeDisposable();
-                    save();
-                    break;
-                case OPENED:
-                case CREATED:
-                case ACTIVE:
-                    channel.doClose();
-                    save();
-                    break;
-            }
-        }
-
         private void makeTransitions() {
+            boolean needClose = channel.isNeedClose();
             switch (channel.getStatus()) {
                 case NEW:
-                    startCreating();
+                    if (needClose) {
+                        channel.makeDisposable();
+                    } else {
+                        startCreating();
+                    }
                     break;
                 case CREATED:
-                    approvedDeposit = policy.getDeposit();
-                    channel.approveDeposit(tokenService, approvedDeposit);
+                    if (needClose) {
+                        channel.doRequestClose();
+                    } else {
+                        approvedDeposit = policy.getDeposit();
+                        channel.approveDeposit(tokenService, approvedDeposit);
+                    }
                     break;
                 case DEPOSIT_APPROVED:
                     channel.deposit(approvedDeposit);
                     break;
                 case OPENED:
-                    PeerConnection connection = peerConnectionManager.getConnection(receiverAddress);
-                    ChannelOpenedResponse response = connection.getChannelPeer().opened(ChannelOpenedRequest.newBuilder().setChannelId(channel.getChannelAddress().toString()).build());
-                    if (response.hasError()) {
-                        log.warn("Failed to notify counterparty {}", response.getError().getMessage());
+                    if (needClose) {
+                        channel.doRequestClose();
                     } else {
-                        channel.setActive();
+                        PeerConnection connection = peerConnectionManager.getConnection(receiverAddress);
+                        ChannelOpenedResponse response = connection.getChannelPeer().opened(ChannelOpenedRequest.newBuilder().setChannelId(channel.getChannelAddress().toString()).build());
+                        if (response.hasError()) {
+                            log.warn("Failed to notify counterparty {}", response.getError().getMessage());
+                        } else {
+                            channel.setActive();
+                        }
                     }
                     break;
                 case ACTIVE:
-                    if (channel.isNeedsSync()) {
-                        //TODO make async call
-                        syncChannel();
+                    if (!needClose && policy.getCloseBlocksCount() > 0) {
+                        long ageBlocks = ethereumService.getBlockNumber() - channel.getOpenBlock();
+                        if (ageBlocks > policy.getCloseBlocksCount()) {
+                            log.info("Channel {} age is {}, closing");
+                            needClose = true;
+                        }
                     }
+                    if (needClose) {
+                        channel.doRequestClose();
+                    }
+                    break;
+                case CLOSE_REQUESTED:
+                    channel.closeIfPossible(ethereumService.getBlockNumber());
                     break;
                 case CLOSED:
                     channel.settleIfPossible(ethereumService.getBlockNumber());
@@ -266,7 +272,7 @@ public class OutgoingChannelCoordinator {
                     .setState(state.toMessage())
                     .build()
             ).getError();
-            if (error == null) {
+            if (error.getMessage().isEmpty()) {
                 channel.syncCompleted(state);
                 save();
             }
@@ -277,6 +283,7 @@ public class OutgoingChannelCoordinator {
             Future<TransactionReceipt> future = contractManager.channelManager().newChannel(
                 channel.getChannel().getClientAddress(),
                 receiverAddress,
+                new Uint256(channelProperties.getCloseTimeout()),
                 new Uint256(channelProperties.getSettleTimeout()),
                 channelProperties.getAuditor().orElse(Address.DEFAULT)
             );
@@ -288,8 +295,7 @@ public class OutgoingChannelCoordinator {
                     if (events.isEmpty()) {
                         throw new IllegalStateException("Channel contract was not created");
                     }
-                    Preconditions.checkState(events.size() == 1);
-                    Address address = events.get(0).channel_address;
+                    Address address = events.get(events.size() - 1).channel_address;
                     ChannelContract contract = contractManager.load(ChannelContract.class, address);
                     contract.setTransactionReceipt(receipt);
                     channel.getChannel().linkNewContract(contract);
@@ -303,7 +309,9 @@ public class OutgoingChannelCoordinator {
         }
 
         private void save() {
-            channelRepository.save(channel.getPersistentState());
+            if (channel.getChannelAddress() != null) {
+                channelRepository.save(channel.getPersistentState());
+            }
         }
 
     }

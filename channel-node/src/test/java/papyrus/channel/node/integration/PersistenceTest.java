@@ -21,7 +21,7 @@ public class PersistenceTest extends BaseChannelTest {
 
         BigDecimal deposit = new BigDecimal("0.01");
 
-        openChannel(ChannelPoolMessage.newBuilder()
+        createPool(ChannelPoolMessage.newBuilder()
             .setDeposit(deposit.toString())
             .build()
         );

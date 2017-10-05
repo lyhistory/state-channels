@@ -24,8 +24,9 @@ public class PaymentTest extends BaseChannelTest {
 
         BigDecimal deposit = new BigDecimal("0.01");
 
-        IncomingChannelState channelState = openChannel(ChannelPoolMessage.newBuilder()
+        IncomingChannelState channelState = createPool(ChannelPoolMessage.newBuilder()
             .setDeposit(deposit.toString())
+            .setCloseBlocksCount(10)
             .build()
         );
 
@@ -65,7 +66,7 @@ public class PaymentTest extends BaseChannelTest {
 
         BigDecimal deposit = new BigDecimal("0.01");
 
-        IncomingChannelState channelState = openChannel(ChannelPoolMessage.newBuilder()
+        IncomingChannelState channelState = createPool(ChannelPoolMessage.newBuilder()
             .setDeposit(deposit.toString())
             .setProperties(
                 ChannelPropertiesMessage.newBuilder()

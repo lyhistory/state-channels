@@ -36,6 +36,7 @@ message ChannelPoolMessage {
     string deposit = 7;
     int32 min_active_channels = 8;
     int32 max_active_channels = 9;
+    int32 close_blocks_count = 10;
 }
 
 message AddChannelPoolResponse {

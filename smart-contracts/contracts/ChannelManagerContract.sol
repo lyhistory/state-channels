@@ -10,12 +10,13 @@ contract ChannelManagerContract {
         address indexed sender,
         address client,
         address indexed receiver,
+        uint close_timeout,
         uint settle_timeout
     );
 
     event ChannelDeleted(
-        address caller_address,
-        address partner
+        address indexed sender,
+        address indexed receiver
     );
 
     StandardToken public token;
@@ -49,6 +50,7 @@ contract ChannelManagerContract {
     function newChannel(
         address client, 
         address receiver, 
+        uint close_timeout,
         uint settle_timeout,
         address auditor
     )
@@ -59,6 +61,7 @@ contract ChannelManagerContract {
             msg.sender,
             client,
             receiver,
+            close_timeout,
             settle_timeout,
             auditor
         );
@@ -73,7 +76,8 @@ contract ChannelManagerContract {
             new_channel_address, 
             msg.sender, 
             client, 
-            receiver, 
+            receiver,
+            close_timeout,
             settle_timeout
         );
 

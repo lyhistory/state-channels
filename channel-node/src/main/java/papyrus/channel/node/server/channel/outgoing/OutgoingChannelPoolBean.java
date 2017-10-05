@@ -29,6 +29,8 @@ public class OutgoingChannelPoolBean {
     private long closeTimeout;
     @Column(name = "settle_timeout")
     private long settleTimeout;
+    @Column(name = "close_blocks_count")
+    private long closeBlocksCount;
     private boolean shutdown;
 
     public OutgoingChannelPoolBean() {
@@ -43,6 +45,7 @@ public class OutgoingChannelPoolBean {
         this.deposit = TokenConvert.fromWei(config.getPolicy().getDeposit());
         this.closeTimeout = config.getBlockchainProperties().getCloseTimeout();
         this.settleTimeout = config.getBlockchainProperties().getSettleTimeout();
+        this.closeBlocksCount = config.getPolicy().getCloseBlocksCount();
     }
 
     public Address getSender() {
@@ -107,6 +110,14 @@ public class OutgoingChannelPoolBean {
 
     public void setSettleTimeout(long settleTimeout) {
         this.settleTimeout = settleTimeout;
+    }
+
+    public long getCloseBlocksCount() {
+        return closeBlocksCount;
+    }
+
+    public void setCloseBlocksCount(long closeBlocksCount) {
+        this.closeBlocksCount = closeBlocksCount;
     }
 
     public boolean isShutdown() {

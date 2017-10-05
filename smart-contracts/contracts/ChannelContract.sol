@@ -7,6 +7,7 @@ contract ChannelContract {
     ChannelLibrary.Data data;
 
     event ChannelNewBalance(address token_address, address participant, uint balance, uint block_number);
+    event ChannelCloseRequested(address closing_address, uint block_number);
     event ChannelClosed(address closing_address, uint block_number);
     event TransferUpdated(address node_address, uint block_number);
     event ChannelSettled(uint block_number);
@@ -22,6 +23,7 @@ contract ChannelContract {
         address sender,
         address client,
         address receiver,
+        uint close_timeout,
         uint settle_timeout,
         address auditor
     )
@@ -37,6 +39,7 @@ contract ChannelContract {
         data.receiver = receiver;
         data.auditor = auditor;
         data.manager = ChannelManagerContract(manager_address);
+        data.close_timeout = close_timeout;
         data.settle_timeout = settle_timeout;
         data.opened = block.number;
     }
@@ -71,6 +74,12 @@ contract ChannelContract {
         balance = data.balance;
     }
 
+    /// @notice Request to close the channel. 
+    function request_close () {
+        data.request_close();
+        ChannelCloseRequested(msg.sender, data.closed);
+    }
+
     /// @notice Close the channel. 
     function close (
         uint nonce,
@@ -96,6 +105,7 @@ contract ChannelContract {
         uint,
         uint,
         uint,
+        uint,
         address,
         address,
         address,
@@ -107,6 +117,7 @@ contract ChannelContract {
     ) {
         return (data.settle_timeout,
             data.opened,
+            data.close_requested,
             data.closed,
             data.settled,
             data.manager,

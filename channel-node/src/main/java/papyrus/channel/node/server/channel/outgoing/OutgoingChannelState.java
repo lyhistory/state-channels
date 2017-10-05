@@ -39,7 +39,7 @@ public class OutgoingChannelState {
     private Map<BigInteger, SignedTransfer> lockedTransfers = new HashMap<>();
     private long currentNonce;
     private long syncedNonce;
-    private volatile boolean closeRequested;
+    private volatile boolean needClose;
 
     private StateTransition transition;
 
@@ -54,15 +54,16 @@ public class OutgoingChannelState {
         status = 
             channel.getSettled() > 0 ? Status.SETTLED : 
             channel.getClosed() > 0 ? Status.CLOSED : 
+            channel.getCloseRequested() > 0 ? Status.CLOSE_REQUESTED : 
             channel.getBalance().signum() > 0 ? Status.OPENED : Status.CREATED;
     }
 
-    public boolean isClosed() {
-        return closeRequested || channel != null && channel.getClosed() > 0 || getPendingStatus() == Status.CLOSED;
+    public boolean isCloseRequested() {
+        return needClose || channel != null && channel.getCloseRequested() > 0 || getPendingStatus() == Status.CLOSE_REQUESTED;
     }
 
     public boolean isActive() {
-        return !closeRequested && status == Status.ACTIVE && getPendingStatus() == Status.ACTIVE;
+        return !needClose && status == Status.ACTIVE && getPendingStatus() == Status.ACTIVE;
     }
 
     public boolean isSettled() {
@@ -232,20 +233,20 @@ public class OutgoingChannelState {
         );
     }
     
-    public boolean requestClose() {
+    public boolean setNeedClose() {
         if (!status.isAnyOf(Status.SETTLED, Status.DISPUTING)) {
-            this.closeRequested = true;
+            this.needClose = true;
             return true;
         }
         return false;
     }
 
-    public boolean isCloseRequested() {
-        return closeRequested;
+    public boolean isNeedClose() {
+        return needClose;
     }
 
-    void setCloseRequested(boolean closeRequested) {
-        this.closeRequested = closeRequested;
+    void setNeedClose(boolean needClose) {
+        this.needClose = needClose;
     }
 
     public void makeDisposable() {
@@ -253,16 +254,30 @@ public class OutgoingChannelState {
         this.status = Status.DISPOSABLE;
     }
 
-    public void doClose() {
+    public void doRequestClose() {
         checkStatus(Status.OPENED, Status.CREATED, Status.ACTIVE);
-        startTransition(Status.CLOSED, 
-            channel.getContract().close(
-                new Uint256(currentNonce),
-                new Uint256(transferedAmount),
-                new DynamicBytes(new byte[0])
-            ),
-            tr -> channel.setClosed(tr.getBlockNumber().longValueExact())
+        startTransition(Status.CLOSE_REQUESTED, 
+            channel.getContract().request_close(),
+            tr -> channel.setCloseRequested(tr.getBlockNumber().longValueExact())
         );
+    }
+
+    public void closeIfPossible(long currentBlockNumber) {
+        Preconditions.checkState(channel.getCloseRequested() > 0);
+        checkStatus(Status.CLOSE_REQUESTED);
+        long blocksLeft = channel.getCloseRequested() + channel.getProperties().getCloseTimeout() - currentBlockNumber;
+        if (blocksLeft <= 0) {
+            startTransition(Status.CLOSED,
+                channel.getContract().close(
+                    new Uint256(currentNonce),
+                    new Uint256(transferedAmount),
+                    new DynamicBytes(new byte[0])
+                ),
+                tr -> channel.setClosed(tr.getBlockNumber().longValueExact())
+            );
+        } else {
+            log.debug("Waiting close timeout for channel {} blocks left: {}", getAddressSafe(), blocksLeft);
+        }
     }
     
     
@@ -297,6 +312,8 @@ public class OutgoingChannelState {
         OPENED, 
         /** Counterparty notified */
         ACTIVE, 
+        /** Close requested in blockchain. */
+        CLOSE_REQUESTED, 
         /** Closed in blockchain. */
         CLOSED, 
         /** Settled */

@@ -24,6 +24,7 @@ public class BlockchainChannel extends DataObject {
     private Address channelAddress;
     private Address closingAddress;
     private long created;
+    private long closeRequested;
     private long closed;
     private long settled;
     private long nonce;
@@ -56,6 +57,9 @@ public class BlockchainChannel extends DataObject {
 //            uint closed,
         closed = ((Uint) st.get(i++)).getValue().longValueExact();
         Preconditions.checkState(closed >= 0);
+//            uint close_requested,
+        closeRequested = ((Uint) st.get(i++)).getValue().longValueExact();
+        Preconditions.checkState(closeRequested >= 0);
 //            uint settled,
         settled = ((Uint) st.get(i++)).getValue().longValueExact();
         Preconditions.checkState(settled >= 0);
@@ -124,6 +128,14 @@ public class BlockchainChannel extends DataObject {
 
     public long getCreated() {
         return created;
+    }
+
+    public long getCloseRequested() {
+        return closeRequested;
+    }
+
+    public void setCloseRequested(long closeRequested) {
+        this.closeRequested = closeRequested;
     }
 
     public long getClosed() {
