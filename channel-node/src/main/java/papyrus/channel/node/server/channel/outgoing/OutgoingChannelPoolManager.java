@@ -132,13 +132,6 @@ public class OutgoingChannelPoolManager {
 
     @EventListener(ContextStartedEvent.class)
     public void start() throws Exception {
-        if (ethProperties.isSync()) {
-            Retriable.wrapTask(this::syncBlockchainChannels)
-                .withErrorMessage("Failed to load channels from blockchain")
-                .retryOn(HttpHostConnectException.class)
-                .call();
-        }
-
         Retriable.wrapTask(() -> {
             loadPools();
             loadChannels();
@@ -146,8 +139,15 @@ public class OutgoingChannelPoolManager {
         .retryOn(NoHostAvailableException.class, UnknownHostException.class)
         .withErrorMessage("Failed to load state from persistent store")
         .call();
-        
-//        executorService.scheduleWithFixedDelay(this::syncBlockchainChannels, 60, 60, TimeUnit.SECONDS);
+
+        if (ethProperties.isSync()) {
+            Retriable.wrapTask(this::syncBlockchainChannels)
+                .withErrorMessage("Failed to load channels from blockchain")
+                .retryOn(HttpHostConnectException.class)
+                .call();
+        }
+
+        //        executorService.scheduleWithFixedDelay(this::syncBlockchainChannels, 60, 60, TimeUnit.SECONDS);
 
         watchThread.start();
     }
@@ -175,12 +175,9 @@ public class OutgoingChannelPoolManager {
 
     private void loadChannels() {
         for (OutgoingChannelBean bean : channelRepository.all()) {
-            Optional<OutgoingChannelState> state = registry.getChannel(bean.getAddress());
-            if (!state.isPresent()) {
-                log.warn("Channel disappeared from blockchain: {}", bean.getAddress());
-            } else {
-                state.get().updatePersistentState(bean);
-            }
+            OutgoingChannelState state = registry.getChannel(bean.getAddress())
+                .orElse(registry.loadChannel(bean.getAddress()));
+            state.updatePersistentState(bean);
         }
     }
 
@@ -194,7 +191,7 @@ public class OutgoingChannelPoolManager {
                     OutgoingChannelState state = registry.loadChannel(address);
                     BlockchainChannel channel = state.getChannel();
                     if (state.getStatus() == OutgoingChannelState.Status.SETTLED) continue;
-                    log.info("Loaded {} channel from blockchain: {}", state.getStatus(), channel);
+                    log.info("Loaded {} channel from blockchain. address: {}, data: {}", state.getStatus(), address, channel);
                     Optional<OutgoingChannelState> existingState = registry.getChannel(address);
                     if (existingState.isPresent()) {
                         existingState.get().updateBlockchainState(state);

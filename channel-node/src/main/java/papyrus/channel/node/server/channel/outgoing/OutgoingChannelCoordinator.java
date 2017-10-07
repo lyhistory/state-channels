@@ -174,7 +174,7 @@ public class OutgoingChannelCoordinator {
                         }
                         
                         if (!channel.isCloseRequested() && policy.isNone()) {
-                            log.info("No policy defined for channel {}, closing it", channel);
+                            log.info("No policy defined for channel {}, closing it", channel.getAddressSafe());
                             channel.setNeedClose();
                         } else {
                             makeTransitions();
@@ -242,7 +242,7 @@ public class OutgoingChannelCoordinator {
                     if (!needClose && policy.getCloseBlocksCount() > 0) {
                         long ageBlocks = ethereumService.getBlockNumber() - channel.getOpenBlock();
                         if (ageBlocks > policy.getCloseBlocksCount()) {
-                            log.info("Channel {} age is {}, closing");
+                            log.info("Channel {} age is {}, closing", channel.getAddressSafe(), ageBlocks);
                             needClose = true;
                         }
                     }

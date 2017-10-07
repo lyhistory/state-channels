@@ -48,13 +48,9 @@ import papyrus.channel.node.server.persistence.DatabaseCleaner;
  * Before test run:
  * <br>
  * <code>
- *     cd
- * </code>
- * And 
- * <code>
  *     truffle migrate --reset
  * </code>
- * the copy contract addresses to application-testrpc.yaml
+ * the copy contract addresses to application-devnet.yaml
  */
 public class BaseChannelTest {
     ConfigurableApplicationContext sender;
@@ -99,7 +95,7 @@ public class BaseChannelTest {
         SpringApplicationBuilder builder = new SpringApplicationBuilder()
             .sources(ChannelNodeApplication.class)
             .main(ChannelNodeApplication.class)
-            .profiles("test", "testrpc", context);
+            .profiles("test", "devnet", context);
         configureContext(builder);
         return builder.build().run();
     }

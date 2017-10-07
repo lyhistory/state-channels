@@ -23,6 +23,7 @@ public class PersistenceTest extends BaseChannelTest {
 
         createPool(ChannelPoolMessage.newBuilder()
             .setDeposit(deposit.toString())
+            .setCloseBlocksCount(100)
             .build()
         );
         

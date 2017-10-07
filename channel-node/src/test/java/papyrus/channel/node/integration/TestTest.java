@@ -28,7 +28,7 @@ import papyrus.channel.node.contract.TestContract;
 import papyrus.channel.node.server.ethereum.EthereumService;
 
 @EnableConfigurationProperties({EthProperties.class, ContractsProperties.class})
-@ActiveProfiles({"test", "testrpc", "sender"})
+@ActiveProfiles({"test", "devnet", "sender"})
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = {PropertyConvertersConfig.class, Web3jConfigurer.class, EthereumConfig.class, EthereumService.class})
 public class TestTest {
