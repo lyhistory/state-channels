@@ -4,19 +4,35 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import org.web3j.abi.datatypes.Address;
-import org.web3j.utils.Convert;
+import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.utils.Numeric;
+
+import com.datastax.driver.mapping.annotations.ClusteringColumn;
+import com.datastax.driver.mapping.annotations.Column;
+import com.datastax.driver.mapping.annotations.PartitionKey;
+import com.datastax.driver.mapping.annotations.Table;
+import com.datastax.driver.mapping.annotations.Transient;
 
 import papyrus.channel.node.MessageLock;
 import papyrus.channel.node.TransferMessage;
 import papyrus.channel.node.server.ethereum.CryptoUtil;
 import papyrus.channel.node.server.ethereum.SignedObject;
+import papyrus.channel.node.server.ethereum.TokenConvert;
+import papyrus.channel.node.server.persistence.Keyspaces;
 
+@Table(keyspace = Keyspaces.CHANNEL, name = "transfer")
 public class SignedTransfer extends SignedObject {
-    private BigInteger transferId;
+    @Column(name = "transfer_id")
+    @ClusteringColumn
+    private Uint256 transferId;
+    @Column(name = "channel_id")
+    @PartitionKey
     private Address channelAddress;
-    private BigInteger value;
+    private BigDecimal value;
     private boolean locked;
+
+    public SignedTransfer() {
+    }
 
     public SignedTransfer(TransferMessage transferMessage) {
         this(
@@ -30,42 +46,67 @@ public class SignedTransfer extends SignedObject {
 
     public SignedTransfer(String transferId, String channelAddress, String value, boolean locked) {
         this(
-            Numeric.toBigInt(transferId), 
+            new Uint256(Numeric.toBigInt(transferId)), 
             new Address(channelAddress),
-            Convert.toWei(value, Convert.Unit.ETHER).toBigIntegerExact(), 
+            new BigDecimal(value), 
             locked
         );
     }
 
-    public SignedTransfer(BigInteger transferId, Address channelAddress, BigInteger value, boolean locked) {
+    public SignedTransfer(Uint256 transferId, Address channelAddress, BigDecimal value, boolean locked) {
         this.transferId = transferId;
         this.channelAddress = channelAddress;
         this.value = value;
         this.locked = locked;
     }
 
-    public BigInteger getTransferId() {
+    public Uint256 getTransferId() {
         return transferId;
+    }
+
+    public void setTransferId(Uint256 transferId) {
+        this.transferId = transferId;
     }
 
     public Address getChannelAddress() {
         return channelAddress;
     }
 
-    public BigInteger getValue() {
+    public void setChannelAddress(Address channelAddress) {
+        this.channelAddress = channelAddress;
+    }
+
+    public BigDecimal getValue() {
         return value;
+    }
+
+    public void setValue(BigDecimal value) {
+        this.value = value;
+    }
+
+    @Transient
+    public BigInteger getValueWei() {
+        return TokenConvert.toWei(value);
+    }
+
+    public void setValueWei(BigInteger value) {
+        this.value = TokenConvert.fromWei(value);
     }
 
     public boolean isLocked() {
         return locked;
     }
 
+    public void setLocked(boolean locked) {
+        this.locked = locked;
+    }
+
     public TransferMessage toMessage() {
         return TransferMessage.newBuilder()
             .setChannelAddress(Numeric.toHexStringNoPrefix(channelAddress.getValue()))
             .setSignature(Numeric.toHexStringNoPrefix(signature))
-            .setTransferId(Numeric.toHexStringNoPrefix(transferId))
-            .setValue(Convert.fromWei(new BigDecimal(value), Convert.Unit.ETHER).toString())
+            .setTransferId(Numeric.toHexStringNoPrefix(transferId.getValue()))
+            .setValue(value.toString())
             .setLock(locked ? MessageLock.AUDITOR : MessageLock.NONE)
             .build();
     }

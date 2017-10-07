@@ -15,6 +15,7 @@ import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.mapping.Mapper;
 import com.datastax.driver.mapping.MappingManager;
+import com.datastax.driver.mapping.Result;
 import com.google.common.collect.Lists;
 
 public class ClusteredLoader<Id, CKey, Data> {
@@ -154,8 +155,8 @@ public class ClusteredLoader<Id, CKey, Data> {
         return bind(deleteByIdKey,id, ckey);
     }
 
-    public List<Data> selectAllById(Id id) {
-        return mapper.map(session.execute(bind(selectAllById, id))).all();
+    public Result<Data> selectAllById(Id id) {
+        return mapper.map(session.execute(bind(selectAllById, id)));
     }
 
     public void deleteAllById(Id id) {

@@ -1,9 +1,10 @@
 package papyrus.channel.node.server.persistence;
 
-import java.util.List;
 import java.util.Optional;
 
 import org.apache.commons.lang3.tuple.Pair;
+
+import com.datastax.driver.mapping.Result;
 
 public class ClusteredCassandraRepository<PKey, CKey, T> extends CassandraRepository<Pair<PKey, CKey>, T> {
     private final Class<CKey> ckeyClass;
@@ -24,7 +25,7 @@ public class ClusteredCassandraRepository<PKey, CKey, T> extends CassandraReposi
         return clusteredLoader.selectByIdKey(pkey, ckey);  
     }
 
-    public List<T> getAllById(PKey pkey) {
+    public Result<T> getAllById(PKey pkey) {
         return clusteredLoader.selectAllById(pkey);  
     }
 

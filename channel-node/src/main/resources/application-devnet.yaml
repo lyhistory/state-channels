@@ -31,7 +31,7 @@ contract:
     ChannelLibrary: 0xe602be50bba98e6737fd3fbcedc7a980cc54cc86
     EndpointRegistryContract: 0x5f28cbd9c37fb2f53b44ab9f00b8bd5d4dd93a27
     PapyrusToken: 0x2ad85dfa9fa6d991cf28930de431d452840ce7dd
-    ChannelManagerContract: 0x7b794d3ba01630ab257c19ed8451e96ef3d2164f
+    ChannelManagerContract: 0xd404d227bc4d1391e1c41473a2a18daed5e4943e
 
 logging:
   level:

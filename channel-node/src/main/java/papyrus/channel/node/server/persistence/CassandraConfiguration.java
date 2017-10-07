@@ -43,6 +43,8 @@ public class CassandraConfiguration {
             registry.register(new EnumNameCodec(e));
         }
         registry.register(new AddressCodec());
+        registry.register(new UInt256Codec());
+        registry.register(new ByteArrayCodec());
     }
 
     @Bean

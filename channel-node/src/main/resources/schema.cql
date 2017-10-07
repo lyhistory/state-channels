@@ -1,5 +1,6 @@
 CREATE KEYSPACE IF NOT EXISTS outgoing WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
 CREATE KEYSPACE IF NOT EXISTS incoming WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
+CREATE KEYSPACE IF NOT EXISTS channel WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
 
 // PROD
 // CREATE KEYSPACE main WITH REPLICATION = {
@@ -36,14 +37,24 @@ CREATE TABLE IF NOT EXISTS outgoing.channel (
 WITH comment='Outgoing channels'
 ;
 
-CREATE TABLE IF NOT EXISTS outgoing.transfer (
-    channel_id          text,
-    transfer_id         text,
+CREATE TABLE IF NOT EXISTS channel.transfer (
+    channel_id          blob,
+    transfer_id         blob,
     value               decimal,
     locked              boolean,
+    signature           blob,
     PRIMARY KEY(channel_id,transfer_id) 
 )
-WITH comment='Outgoing channel transfers'
+WITH comment='Channel transfers'
+;
+
+CREATE TABLE IF NOT EXISTS channel.unlock (
+    channel_id          blob,
+    transfer_id         blob,
+    signature           blob,
+    PRIMARY KEY(channel_id,transfer_id) 
+)
+WITH comment='Channel transfer unlocks'
 ;
 
 //----------------- INCOMING ----------------
@@ -58,15 +69,3 @@ CREATE TABLE IF NOT EXISTS incoming.channel (
 )
 WITH comment='Incoming channels'
 ;
-
-CREATE TABLE IF NOT EXISTS incoming.transfer (
-    channel_id          text,
-    transfer_id         text,
-    value               decimal,
-    locked              boolean,
-    signature           blob,
-    PRIMARY KEY(channel_id,transfer_id) 
-)
-WITH comment='Incoming channel transfers'
-;
-

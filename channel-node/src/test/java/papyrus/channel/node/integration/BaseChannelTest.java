@@ -14,6 +14,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.web3j.abi.datatypes.Address;
+import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
 import org.web3j.utils.Convert;
@@ -242,9 +243,9 @@ public class BaseChannelTest {
 
         OutgoingChannelState outgoingChannelState = sender.getBean(OutgoingChannelCoordinator.class).getChannel(channelState.getChannelAddress()).get();
 
-        Util.waitFor(() -> !outgoingChannelState.getLockedTransfers().isEmpty());
+        Util.waitFor(() -> !outgoingChannelState.getTransfers().isEmpty());
 
-        Util.assertEquals(Convert.toWei(sum, Convert.Unit.ETHER).toBigIntegerExact(), outgoingChannelState.getLockedTransfers().get(new BigInteger(transferId)).getValue());
+        Util.assertEquals(sum, outgoingChannelState.getTransfers().get(new Uint256(new BigInteger(transferId))).getValue());
         return transfer;
     }
 

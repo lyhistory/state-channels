@@ -5,6 +5,8 @@ import java.security.SignatureException;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.ECKeyPair;
 
+import com.datastax.driver.mapping.annotations.Transient;
+
 import papyrus.channel.node.entity.DataObject;
 
 public abstract class SignedObject extends DataObject implements HashedObject {
@@ -30,6 +32,7 @@ public abstract class SignedObject extends DataObject implements HashedObject {
         }
     }
 
+    @Transient
     public Address getSignerAddress() throws SignatureException {
         return CryptoUtil.verifySignature(signature, hash());
     }

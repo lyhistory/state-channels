@@ -1,6 +1,7 @@
 package papyrus.channel.node.server.channel.outgoing;
 
 import java.math.BigInteger;
+import java.security.SignatureException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -35,8 +36,8 @@ public class OutgoingChannelState {
     private Status status;
     private BlockchainChannel channel;
     private BigInteger transferedAmount = BigInteger.ZERO;
-    private Map<BigInteger, SignedTransfer> transfers = new HashMap<>();
-    private Map<BigInteger, SignedTransfer> lockedTransfers = new HashMap<>();
+    private Map<Uint256, SignedTransfer> transfers = new HashMap<>();
+    private Map<Uint256, SignedTransferUnlock> unlocks = new HashMap<>();
     private long currentNonce;
     private long syncedNonce;
     private volatile boolean needClose;
@@ -56,6 +57,14 @@ public class OutgoingChannelState {
             channel.getClosed() > 0 ? Status.CLOSED : 
             channel.getCloseRequested() > 0 ? Status.CLOSE_REQUESTED : 
             channel.getBalance().signum() > 0 ? Status.OPENED : Status.CREATED;
+    }
+
+    public void verifyTransfer(SignedTransfer transfer) {
+        try {
+            transfer.verifySignature(getChannel().getClientAddress());
+        } catch (SignatureException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public boolean isCloseRequested() {
@@ -82,11 +91,25 @@ public class OutgoingChannelState {
         }
     }
 
-    public void updatePersistentState(OutgoingChannelBean bean) {
+    public void updatePersistentState(OutgoingChannelBean bean, Iterable<SignedTransfer> transfers, Iterable<SignedTransferUnlock> unlocks) {
         currentNonce = bean.getCurrentNonce();
         syncedNonce = bean.getSyncedNonce();
         transferedAmount = TokenConvert.toWei(bean.getTransferred());
         status = bean.getStatus();
+
+        for (SignedTransferUnlock unlock : unlocks) {
+            verifyUnlock(unlock);
+            this.unlocks.put(unlock.getTransferId(), unlock);
+        }
+        BigInteger transferred = BigInteger.ZERO;
+        for (SignedTransfer transfer : transfers) {
+            verifyTransfer(transfer);
+            this.transfers.put(transfer.getTransferId(), transfer);
+            if (!transfer.isLocked() || this.unlocks.containsKey(transfer.getTransferId())) {
+                transferred = transferred.add(transfer.getValueWei());
+            }
+        }
+        transferedAmount = transferred;
     }
     
     public OutgoingChannelBean getPersistentState() {
@@ -153,42 +176,57 @@ public class OutgoingChannelState {
         return status.toString();
     }
 
-    public Map<BigInteger, SignedTransfer> getTransfers() {
+    public Map<Uint256, SignedTransfer> getTransfers() {
         return Collections.unmodifiableMap(transfers);
     }
 
-    public Map<BigInteger, SignedTransfer> getLockedTransfers() {
-        return Collections.unmodifiableMap(lockedTransfers);
+    public Map<Uint256, SignedTransferUnlock> getUnlocks() {
+        return Collections.unmodifiableMap(unlocks);
     }
 
-    public synchronized boolean registerTransfer(SignedTransfer transfer) {
+    public synchronized boolean registerTransfer(SignedTransfer transfer) throws SignatureException {
         Preconditions.checkArgument(transfer.getChannelAddress().equals(getChannelAddress()));
         Preconditions.checkArgument(transfer.getValue().signum() > 0);
 
-        BigInteger transferId = transfer.getTransferId();
-        if (lockedTransfers.containsKey(transferId) || transfers.containsKey(transferId)) {
+        verifyTransfer(transfer);
+
+        Uint256 transferId = transfer.getTransferId();
+        if (unlocks.containsKey(transferId) || transfers.containsKey(transferId)) {
             return false;
         }
-        if (transfer.isLocked()) {
-            lockedTransfers.put(transferId, transfer);
-        } else {
-            transfers.put(transferId, transfer);
-            transferedAmount = transferedAmount.add(transfer.getValue());
+        transfers.put(transferId, transfer);
+        if (!transfer.isLocked()) {
+            transferedAmount = transferedAmount.add(transfer.getValueWei());
         }
         stateChanged();
         return true;
     }
 
     public synchronized boolean unlockTransfer(SignedTransferUnlock transfer) {
-        BigInteger transferId = transfer.getTransferId();
-        SignedTransfer existing = lockedTransfers.remove(transferId);
+        verifyUnlock(transfer);
+
+        Uint256 transferId = transfer.getTransferId();
+        SignedTransfer existing = transfers.get(transferId);
         if (existing == null) {
+            log.warn("No transfer to unlock found. Channel: {}, transfer: {}", transfer.getChannelAddress(), transfer.getTransferId());
             return false;
         }
-        transfers.put(transferId, existing);
-        transferedAmount = transferedAmount.add(existing.getValue());
+        if (unlocks.put(transferId, transfer) == null) {
+            transferedAmount = transferedAmount.add(existing.getValueWei());
+        }
         stateChanged();
         return true;
+    }
+
+    private void verifyUnlock(SignedTransferUnlock transfer) {
+        ChannelProperties properties = channel.getProperties();
+        properties.getAuditor().ifPresent(expectedSigner -> {
+            try {
+                transfer.verifySignature(expectedSigner);
+            } catch (SignatureException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private void stateChanged() {

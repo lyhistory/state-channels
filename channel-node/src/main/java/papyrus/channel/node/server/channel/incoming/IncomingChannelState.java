@@ -1,6 +1,5 @@
 package papyrus.channel.node.server.channel.incoming;
 
-import java.math.BigInteger;
 import java.security.SignatureException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -9,6 +8,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.web3j.abi.datatypes.Address;
+import org.web3j.abi.datatypes.generated.Uint256;
 
 import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.server.channel.BlockchainChannel;
@@ -23,8 +23,8 @@ public class IncomingChannelState {
     private SignedChannelState ownState;
     private SignedChannelState senderState;
     //TODO implement merkle tree
-    private Map<BigInteger, SignedTransfer> transfers = new HashMap<>(); 
-    private Map<BigInteger, SignedTransfer> lockedTransfers = new HashMap<>(); 
+    private Map<Uint256, SignedTransfer> transfers = new HashMap<>(); 
+    private Map<Uint256, SignedTransfer> lockedTransfers = new HashMap<>(); 
 
     public IncomingChannelState(BlockchainChannel channel) {
         this.channel = channel;
@@ -57,7 +57,7 @@ public class IncomingChannelState {
     
     public synchronized boolean registerTransfer(SignedTransfer transfer) {
         try {
-            BigInteger transferId = transfer.getTransferId();
+            Uint256 transferId = transfer.getTransferId();
             if (transfers.containsKey(transferId) || lockedTransfers.containsKey(transferId)) {
                 return false;
             }
@@ -66,7 +66,7 @@ public class IncomingChannelState {
                 lockedTransfers.put(transferId, transfer);
             } else {
                 transfers.put(transferId, transfer);
-                ownState.setCompletedTransfers(ownState.getCompletedTransfers().add(transfer.getValue()));
+                ownState.setCompletedTransfers(ownState.getCompletedTransfers().add(transfer.getValueWei()));
                 ownState.setTransfersRoot(null);
             }
             return true;
@@ -84,13 +84,13 @@ public class IncomingChannelState {
                 throw new RuntimeException(e);
             }
         });
-        BigInteger transferId = transferUnlock.getTransferId();
+        Uint256 transferId = transferUnlock.getTransferId();
         SignedTransfer transfer = lockedTransfers.remove(transferId);
         if (transfer == null) {
             return false;
         }
         transfers.put(transferId, transfer);
-        ownState.setCompletedTransfers(ownState.getCompletedTransfers().add(transfer.getValue()));
+        ownState.setCompletedTransfers(ownState.getCompletedTransfers().add(transfer.getValueWei()));
         ownState.setTransfersRoot(null);
         ownState.setLockedTransfersRoot(null);
         return true;
@@ -102,7 +102,7 @@ public class IncomingChannelState {
 
     public boolean requestClose() {
         //TODO
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();                       
     }
 
     public Address getSenderAddress() {
@@ -113,11 +113,11 @@ public class IncomingChannelState {
         return channel.getReceiverAddress();
     }
 
-    public Map<BigInteger, SignedTransfer> getTransfers() {
+    public Map<Uint256, SignedTransfer> getTransfers() {
         return Collections.unmodifiableMap(transfers);
     }
 
-    public Map<BigInteger, SignedTransfer> getLockedTransfers() {
+    public Map<Uint256, SignedTransfer> getLockedTransfers() {
         return Collections.unmodifiableMap(lockedTransfers);
     }
 }

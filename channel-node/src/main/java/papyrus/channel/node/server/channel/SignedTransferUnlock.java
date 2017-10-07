@@ -1,17 +1,31 @@
 package papyrus.channel.node.server.channel;
 
-import java.math.BigInteger;
-
 import org.web3j.abi.datatypes.Address;
+import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.utils.Numeric;
+
+import com.datastax.driver.mapping.annotations.ClusteringColumn;
+import com.datastax.driver.mapping.annotations.Column;
+import com.datastax.driver.mapping.annotations.PartitionKey;
+import com.datastax.driver.mapping.annotations.Table;
 
 import papyrus.channel.node.UnlockTransferMessage;
 import papyrus.channel.node.server.ethereum.CryptoUtil;
 import papyrus.channel.node.server.ethereum.SignedObject;
+import papyrus.channel.node.server.persistence.Keyspaces;
 
+@Table(keyspace = Keyspaces.CHANNEL, name = "unlock")
 public class SignedTransferUnlock extends SignedObject {
-    private BigInteger transferId;
+    @Column(name = "transfer_id")
+    @ClusteringColumn
+    private Uint256 transferId;
+
+    @Column(name = "channel_id")
+    @PartitionKey
     private Address channelAddress;
+
+    public SignedTransferUnlock() {
+    }
 
     public SignedTransferUnlock(UnlockTransferMessage unlockTransferMessage) {
         this(unlockTransferMessage.getTransferId(), unlockTransferMessage.getChannelAddress());
@@ -19,27 +33,35 @@ public class SignedTransferUnlock extends SignedObject {
     }
 
     public SignedTransferUnlock(String transferId, String channelAddress) {
-        this(Numeric.toBigInt(transferId), new Address(channelAddress));
+        this(new Uint256(Numeric.toBigInt(transferId)), new Address(channelAddress));
     }
 
-    public SignedTransferUnlock(BigInteger transferId, Address channelAddress) {
+    public SignedTransferUnlock(Uint256 transferId, Address channelAddress) {
         this.transferId = transferId;
         this.channelAddress = channelAddress;
     }
 
-    public BigInteger getTransferId() {
+    public Uint256 getTransferId() {
         return transferId;
+    }
+
+    public void setTransferId(Uint256 transferId) {
+        this.transferId = transferId;
     }
 
     public Address getChannelAddress() {
         return channelAddress;
     }
 
+    public void setChannelAddress(Address channelAddress) {
+        this.channelAddress = channelAddress;
+    }
+
     public UnlockTransferMessage toMessage() {
         return UnlockTransferMessage.newBuilder()
             .setChannelAddress(Numeric.toHexStringNoPrefix(channelAddress.getValue()))
             .setSignature(Numeric.toHexStringNoPrefix(signature))
-            .setTransferId(Numeric.toHexStringNoPrefix(transferId))
+            .setTransferId(Numeric.toHexStringNoPrefix(transferId.getValue()))
             .build();
     }
 

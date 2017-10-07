@@ -34,10 +34,11 @@ import com.google.common.base.Throwables;
 import papyrus.channel.node.config.EthProperties;
 import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.ChannelManagerContract;
-import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.server.channel.BlockchainChannel;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.SignedTransferUnlock;
+import papyrus.channel.node.server.channel.TransferRepository;
+import papyrus.channel.node.server.channel.TransferUnlockRepository;
 import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
 import papyrus.channel.node.server.ethereum.EthereumService;
 import papyrus.channel.node.server.peer.PeerConnectionManager;
@@ -65,6 +66,10 @@ public class OutgoingChannelPoolManager {
     private OutgoingChannelPoolRepository poolRepository;
     @Autowired
     private OutgoingChannelRepository channelRepository;
+    @Autowired
+    private TransferRepository transferRepository;
+    @Autowired
+    private TransferUnlockRepository unlockRepository;
     @Autowired
     private ScheduledExecutorService executorService;
     @Autowired
@@ -175,9 +180,12 @@ public class OutgoingChannelPoolManager {
 
     private void loadChannels() {
         for (OutgoingChannelBean bean : channelRepository.all()) {
+            if (bean.getStatus() == OutgoingChannelState.Status.SETTLED) continue;
             OutgoingChannelState state = registry.getChannel(bean.getAddress())
                 .orElse(registry.loadChannel(bean.getAddress()));
-            state.updatePersistentState(bean);
+            Iterable<SignedTransfer> transfers = transferRepository.getAllById(bean.getAddress());
+            Iterable<SignedTransferUnlock> unlocks = unlockRepository.getAllById(bean.getAddress());
+            state.updatePersistentState(bean, transfers, unlocks);
         }
     }
 
@@ -244,23 +252,18 @@ public class OutgoingChannelPoolManager {
         OutgoingChannelState channelState = registry.getChannel(signedTransfer.getChannelAddress()).orElseThrow(
             () -> new IllegalStateException("Unknown channel address: " + signedTransfer.getChannelAddress())
         );
-        signedTransfer.verifySignature(channelState.getChannel().getClientAddress());
         channelState.registerTransfer(signedTransfer);
+        transferRepository.save(signedTransfer);
+        channelRepository.save(channelState.getPersistentState());
     }
 
     public void registerTransferUnlock(SignedTransferUnlock transferUnlock) {
         OutgoingChannelState channelState = registry.getChannel(transferUnlock.getChannelAddress()).orElseThrow(
             () -> new IllegalStateException("Unknown channel address: " + transferUnlock.getChannelAddress())
         );
-        ChannelProperties properties = channelState.getChannel().getProperties();
-        properties.getAuditor().ifPresent(expectedSigner -> {
-            try {
-                transferUnlock.verifySignature(expectedSigner);
-            } catch (SignatureException e) {
-                throw new RuntimeException(e);
-            }
-        });
         channelState.unlockTransfer(transferUnlock);
+        unlockRepository.save(transferUnlock);
+        channelRepository.save(channelState.getPersistentState());
     }
 
     public boolean requestCloseChannel(Address address) {
