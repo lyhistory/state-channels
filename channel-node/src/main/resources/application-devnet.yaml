@@ -30,8 +30,9 @@ contract:
     ECRecovery: 0x1d7524af64698b2be15caa32bdb6416fd4c0a4d0
     ChannelLibrary: 0xe602be50bba98e6737fd3fbcedc7a980cc54cc86
     EndpointRegistryContract: 0x5f28cbd9c37fb2f53b44ab9f00b8bd5d4dd93a27
-    PapyrusToken: 0x2ad85dfa9fa6d991cf28930de431d452840ce7dd
-    ChannelManagerContract: 0xd404d227bc4d1391e1c41473a2a18daed5e4943e
+    ChannelApiStub: 0x2ad85dfa9fa6d991cf28930de431d452840ce7dd
+    PapyrusToken: 0xd404d227bc4d1391e1c41473a2a18daed5e4943e
+    ChannelManagerContract: 0xb668eeaaee32eed2f12df7b603768a553a3956bf
 
 logging:
   level:

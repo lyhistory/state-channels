@@ -29,6 +29,8 @@ public class OutgoingChannelPoolBean {
     private long closeTimeout;
     @Column(name = "settle_timeout")
     private long settleTimeout;
+    @Column(name = "audit_timeout")
+    private long auditTimeout;
     @Column(name = "close_blocks_count")
     private long closeBlocksCount;
     private boolean shutdown;
@@ -118,6 +120,14 @@ public class OutgoingChannelPoolBean {
 
     public void setCloseBlocksCount(long closeBlocksCount) {
         this.closeBlocksCount = closeBlocksCount;
+    }
+
+    public long getAuditTimeout() {
+        return auditTimeout;
+    }
+
+    public void setAuditTimeout(long auditTimeout) {
+        this.auditTimeout = auditTimeout;
     }
 
     public boolean isShutdown() {

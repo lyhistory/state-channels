@@ -2,6 +2,7 @@ pragma solidity ^0.4.11;
 
 import 'zeppelin-solidity/contracts/token/StandardToken.sol';
 import "./ChannelContract.sol";
+import './ChannelApi.sol';
 
 contract ChannelManagerContract {
 
@@ -11,7 +12,8 @@ contract ChannelManagerContract {
         address client,
         address indexed receiver,
         uint close_timeout,
-        uint settle_timeout
+        uint settle_timeout,
+        uint audit_timeout
     );
 
     event ChannelDeleted(
@@ -20,13 +22,16 @@ contract ChannelManagerContract {
     );
 
     StandardToken public token;
+    ChannelApi public channel_api;
 
     mapping(address => address[]) outgoing_channels;
     mapping(address => address[]) incoming_channels;
 
-    function ChannelManagerContract(address token_address) {
+    function ChannelManagerContract(address token_address, address channel_api_address) {
         require(token_address != 0);
+        require(channel_api_address != 0);
         token = StandardToken(token_address);
+        channel_api = ChannelApi(channel_api_address);
     }
 
     /// @notice Get all outgoing channels for participant
@@ -52,6 +57,7 @@ contract ChannelManagerContract {
         address receiver, 
         uint close_timeout,
         uint settle_timeout,
+        uint audit_timeout,
         address auditor
     )
         returns (address)
@@ -63,6 +69,7 @@ contract ChannelManagerContract {
             receiver,
             close_timeout,
             settle_timeout,
+            audit_timeout,
             auditor
         );
 
@@ -78,9 +85,24 @@ contract ChannelManagerContract {
             client, 
             receiver,
             close_timeout,
-            settle_timeout
+            settle_timeout,
+            audit_timeout
         );
 
         return new_channel_address;
+    }
+
+    function auditReport(address contract_address, uint total, uint fraud) {
+        ChannelContract ch = ChannelContract(contract_address);
+//        require(ch.manager() == address(this));
+        address auditor = msg.sender;
+        ch.audit(auditor);
+        channel_api.applyRuntimeUpdate(ch.sender(), ch.receiver(), total, fraud);
+    }
+    
+    function destroyChannel(address channel_address) {
+        ChannelContract ch = ChannelContract(channel_address);
+        require(ch.manager() == address(this));
+        ch.destroy();
     }
 }

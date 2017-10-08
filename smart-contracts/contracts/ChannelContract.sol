@@ -11,10 +11,11 @@ contract ChannelContract {
     event ChannelClosed(address closing_address, uint block_number);
     event TransferUpdated(address node_address, uint block_number);
     event ChannelSettled(uint block_number);
+    event ChannelAudited(uint block_number);
     event ChannelSecretRevealed(bytes32 secret, address receiver_address);
 
-    modifier settleTimeoutNotTooLow(uint t) {
-        require(t >= 6);
+    modifier onlyManager() {
+        require(msg.sender == address(data.manager));
         _;
     }
 
@@ -25,14 +26,17 @@ contract ChannelContract {
         address receiver,
         uint close_timeout,
         uint settle_timeout,
+        uint audit_timeout,
         address auditor
     )
-        settleTimeoutNotTooLow(settle_timeout)
     {
         //allow creation only from manager contract
         require(msg.sender == manager_address);
         require (sender != receiver);
         require (client != receiver);
+        require (audit_timeout >= 0);
+        require (settle_timeout > 0);
+        require (close_timeout >= 0);
 
         data.sender = sender;
         data.client = client;
@@ -41,6 +45,7 @@ contract ChannelContract {
         data.manager = ChannelManagerContract(manager_address);
         data.close_timeout = close_timeout;
         data.settle_timeout = settle_timeout;
+        data.audit_timeout = audit_timeout;
         data.opened = block.number;
     }
 
@@ -99,48 +104,64 @@ contract ChannelContract {
         ChannelSettled(data.settled);
     }
 
-    /// @notice Returns whole state of contract as single call
-    function state() constant returns (
-        uint,
-        uint,
-        uint,
-        uint,
-        uint,
-        address,
-        address,
-        address,
-        address,
-        uint256,
-        uint,
-        uint256,
-        address
-    ) {
-        return (data.settle_timeout,
-            data.opened,
-            data.close_requested,
-            data.closed,
-            data.settled,
-            data.manager,
-            data.sender,
-            data.client,
-            data.receiver,
-            data.balance,
-            data.nonce,
-            data.completed_transfers,
-            data.auditor
-        );
+    /// @notice Settle the transfers and balances of the channel and pay out to
+    ///         each participant. Can only be called after the channel is closed
+    ///         and only after the number of blocks in the settlement timeout
+    ///         have passed.
+    function audit(address auditor) onlyManager {
+        data.audit(auditor);
+        ChannelAudited(data.audited);
     }
 
-    /// @notice Returns the number of blocks until the settlement timeout.
-    /// @return The number of blocks until the settlement timeout.
+    function destroy() onlyManager {
+        require(data.settled > 0);
+        require(data.audited > 0 || block.number > data.closed + data.audit_timeout);
+        selfdestruct(0);
+    }
+
+    function sender() constant returns (address) {
+        return data.sender;
+    }
+
+    function receiver() constant returns (address) {
+        return data.receiver;
+    }
+
+    function client() constant returns (address) {
+        return data.client;
+    }
+
+    function auditor() constant returns (address) {
+        return data.auditor;
+    }
+
+    function closeTimeout() constant returns (uint) {
+        return data.close_timeout;
+    }
+
     function settleTimeout() constant returns (uint) {
         return data.settle_timeout;
     }
 
-    /// @notice Returns the address of the manager.
-    /// @return The address of the token.
-    function managerAddress() constant returns (address) {
+    function auditTimeout() constant returns (uint) {
+        return data.audit_timeout;
+    }
+
+    /// @return Returns the address of the manager.
+    function manager() constant returns (address) {
         return data.manager;
+    }
+
+    function balance() constant returns (uint) {
+        return data.balance;
+    }
+
+    function nonce() constant returns (uint) {
+        return data.nonce;
+    }
+
+    function completedTransfers() constant returns (uint) {
+        return data.completed_transfers;
     }
 
     /// @notice Returns the block number for when the channel was opened.
@@ -149,16 +170,20 @@ contract ChannelContract {
         return data.opened;
     }
 
-    /// @notice Returns the block number for when the channel was closed.
-    /// @return The block number for when the channel was closed.
+    function closeRequested() constant returns (uint) {
+        return data.close_requested;
+    }
+
     function closed() constant returns (uint) {
         return data.closed;
     }
 
-    /// @notice Returns the block number for when the channel was settled.
-    /// @return The block number for when the channel was settled.
     function settled() constant returns (uint) {
         return data.settled;
+    }
+
+    function audited() constant returns (uint) {
+        return data.audited;
     }
 
     function () { revert(); }

@@ -63,7 +63,7 @@ task wrappers(dependsOn:'solc') {
             "ChannelManagerContract",
             "ChannelContract",
             "PapyrusToken",
-            "TestContract",
+            "ChannelApiStub",
     ]
     
     doLast {

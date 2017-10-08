@@ -28,6 +28,7 @@ public class EthereumConfig {
     private static final Logger log = LoggerFactory.getLogger(EthereumConfig.class);
 
     private EthProperties properties;
+    private final Web3j web3j;
     private final Map<Address, EthKeyProperties> keyProperties;
     private final Map<Address, Credentials> credentialsMap;
     private final Map<Address, ThreadsafeTransactionManager> transactionManagerMap;
@@ -36,6 +37,7 @@ public class EthereumConfig {
     @Autowired
     public EthereumConfig(EthProperties properties, Web3j web3j) throws IOException, CipherException {
         this.properties = properties;
+        this.web3j = web3j;
         keyProperties = new HashMap<>();
         credentialsMap = new HashMap<>();
         transactionManagerMap = new HashMap<>();
@@ -53,7 +55,7 @@ public class EthereumConfig {
             Address address = new Address(credentials.getAddress());
             keyProperties.put(address, key);
             credentialsMap.put(address, credentials);
-            ThreadsafeTransactionManager transactionManager = new ThreadsafeTransactionManager(web3j, credentials, rpc);
+            ThreadsafeTransactionManager transactionManager = createTransactionManager(credentials);
             transactionManagerMap.put(address, transactionManager);
         }
         
@@ -65,6 +67,10 @@ public class EthereumConfig {
         mainCredentials = mainCred;
         
         log.info("Configured ETH payment accounts:{} and rpc server: {}", credentialsMap.keySet(), this.properties.getRpc().getNodeUrl());
+    }
+
+    public ThreadsafeTransactionManager createTransactionManager(Credentials credentials) {
+        return new ThreadsafeTransactionManager(web3j, credentials, properties.getRpc());
     }
 
     private static Credentials loadCredentials(EthKeyProperties keyProperties) {

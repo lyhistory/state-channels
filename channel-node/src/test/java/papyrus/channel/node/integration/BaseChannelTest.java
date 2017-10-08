@@ -173,6 +173,7 @@ public class BaseChannelTest {
         ChannelPropertiesMessage.Builder propertiesBuilder = builder.getPropertiesBuilder();
         propertiesBuilder.setCloseTimeout(6);
         propertiesBuilder.setSettleTimeout(6);
+        propertiesBuilder.setAuditTimeout(100);
         builder.mergeFrom(request);
 
         requestBuilder.setPool(builder.build());

@@ -11,10 +11,12 @@ library ChannelLibrary {
     struct Data {
         uint close_timeout;
         uint settle_timeout;
+        uint audit_timeout;
         uint opened;
         uint close_requested;
         uint closed;
         uint settled;
+        uint audited;
         ChannelManagerContract manager;
     
         address sender;
@@ -35,6 +37,11 @@ library ChannelLibrary {
 
     modifier notSettledButClosed(Data storage self) {
         require(self.settled <= 0 && self.closed > 0);
+        _;
+    }
+
+    modifier notAuditedButClosed(Data storage self) {
+        require(self.audited <= 0 && self.closed > 0);
         _;
     }
 
@@ -164,6 +171,13 @@ library ChannelLibrary {
         }
 
         self.settled = block.number;
+    }
+
+    function audit(Data storage self, address auditor)
+        notAuditedButClosed(self) {
+        require(self.auditor == auditor);
+        require(block.number <= self.closed + self.audit_timeout);
+        self.audited = block.number;
     }
 
     function validateTransfer(

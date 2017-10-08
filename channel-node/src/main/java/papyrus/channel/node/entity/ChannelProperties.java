@@ -10,6 +10,7 @@ import papyrus.channel.node.server.channel.outgoing.OutgoingChannelPoolBean;
 public class ChannelProperties extends DataObject {
     private long closeTimeout;
     private long settleTimeout;
+    private long auditTimeout;
     private Address auditor;
 
     public ChannelProperties() {
@@ -18,12 +19,14 @@ public class ChannelProperties extends DataObject {
     public ChannelProperties(ChannelPropertiesMessage properties) {
         this.closeTimeout = properties.getCloseTimeout();
         this.settleTimeout = properties.getSettleTimeout();
+        this.auditTimeout = properties.getAuditTimeout();
         auditor = properties.getAuditorAddress() != null && !properties.getAuditorAddress().isEmpty() ? new Address(properties.getAuditorAddress()) : null;
     }
 
     public ChannelProperties(OutgoingChannelPoolBean bean) {
         this.closeTimeout = bean.getCloseTimeout();
         this.settleTimeout = bean.getSettleTimeout();
+        this.auditTimeout = bean.getAuditTimeout();
         this.auditor = bean.getAuditor();
     }
 
@@ -41,6 +44,14 @@ public class ChannelProperties extends DataObject {
 
     public void setSettleTimeout(long settleTimeout) {
         this.settleTimeout = settleTimeout;
+    }
+
+    public long getAuditTimeout() {
+        return auditTimeout;
+    }
+
+    public void setAuditTimeout(long auditTimeout) {
+        this.auditTimeout = auditTimeout;
     }
 
     public Optional<Address> getAuditor() {

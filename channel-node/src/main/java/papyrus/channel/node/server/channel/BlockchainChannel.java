@@ -1,12 +1,13 @@
 package papyrus.channel.node.server.channel;
 
 import java.math.BigInteger;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.web3j.abi.datatypes.Address;
-import org.web3j.abi.datatypes.Type;
-import org.web3j.abi.datatypes.Uint;
+import org.web3j.abi.datatypes.generated.Uint256;
 
 import com.google.common.base.Preconditions;
 
@@ -16,6 +17,7 @@ import papyrus.channel.node.entity.ChannelProperties;
 import papyrus.channel.node.entity.DataObject;
 
 public class BlockchainChannel extends DataObject {
+    private static final int TIMEOUT_MS = 10000;
     private final Address senderAddress;
     private final Address clientAddress;
     private final Address receiverAddress;
@@ -42,59 +44,56 @@ public class BlockchainChannel extends DataObject {
         this.receiverAddress = receiverAddress;
     }
 
-    private BlockchainChannel(Address managerAddress, ChannelContract contract, List<Type> st) {
+    private BlockchainChannel(Address managerAddress, ChannelContract contract) throws ExecutionException, InterruptedException, TimeoutException {
         this.channelAddress = new Address(contract.getContractAddress());
-        int i = 0;
-//            uint settle_timeout,
-        long timeout = ((Uint) st.get(i++)).getValue().longValueExact();
-        Preconditions.checkState(timeout > 0);
+        long settleTimeout = getLong(contract.settleTimeout());
+        Preconditions.checkState(settleTimeout > 0);
+        long closeTimeout = getLong(contract.closeTimeout());
+        Preconditions.checkState(closeTimeout >= 0);
+        long auditTimeout = getLong(contract.closeTimeout());
+        Preconditions.checkState(auditTimeout >= 0);
         ChannelProperties properties = new ChannelProperties();
-        properties.setSettleTimeout(timeout);
+        properties.setSettleTimeout(settleTimeout);
+        properties.setCloseTimeout(closeTimeout);
+        properties.setAuditTimeout(auditTimeout);
         this.properties = properties;
-//            uint opened,
-        created = ((Uint) st.get(i++)).getValue().longValueExact();
+        created = getLong(contract.opened());
         Preconditions.checkState(created > 0);
-//            uint closed,
-        closed = ((Uint) st.get(i++)).getValue().longValueExact();
+        closed = getLong(contract.closed());
         Preconditions.checkState(closed >= 0);
-//            uint close_requested,
-        closeRequested = ((Uint) st.get(i++)).getValue().longValueExact();
+        closeRequested = getLong(contract.closeRequested());
         Preconditions.checkState(closeRequested >= 0);
-//            uint settled,
-        settled = ((Uint) st.get(i++)).getValue().longValueExact();
+        settled = getLong(contract.settled());
         Preconditions.checkState(settled >= 0);
-//            address manager,
-        Address manager_address = address(st.get(i++));
+        Address manager_address = getAddress(contract.manager());
         Preconditions.checkArgument(managerAddress.equals(manager_address), "Wrong manager address: %s", manager_address);
-//            address sender,
-        senderAddress = address(st.get(i++));
+        senderAddress = getAddress(contract.sender());
         Preconditions.checkState(senderAddress != null);
-//            address client,
-        clientAddress = address(st.get(i++));
+        clientAddress = getAddress(contract.client());
         Preconditions.checkState(clientAddress != null);
-//            address receiver,
-        receiverAddress = address(st.get(i++));
+        receiverAddress = getAddress(contract.receiver());
         Preconditions.checkState(receiverAddress != null);
-//            uint256 balance,
-        balance = ((Uint) st.get(i++)).getValue();
+        balance = contract.balance().get(TIMEOUT_MS, TimeUnit.MILLISECONDS).getValue();
         Preconditions.checkState(balance.signum() >= 0);
-//            uint256 sender_update.completed_transfers,
-        nonce = ((Uint) st.get(i++)).getValue().longValueExact();
+        nonce = getLong(contract.nonce());
         Preconditions.checkState(nonce >= 0);
-//            uint256 receiver_update.completed_transfers
-        completedTransfers = ((Uint) st.get(i++)).getValue();
+        completedTransfers = contract.completedTransfers().get(TIMEOUT_MS, TimeUnit.MILLISECONDS).getValue();
         Preconditions.checkState(completedTransfers.signum() >= 0);
-        //noinspection unchecked
-        Address auditorAddress = (Address) st.get(i++);
-        if (auditorAddress.getValue().signum() != 0) {
-            properties.setAuditor(auditorAddress);
-        }
-        Preconditions.checkArgument(st.size() == i);
+        Address auditorAddress = getAddress(contract.auditor());
+        properties.setAuditor(auditorAddress);
         this.contract = contract;
     }
 
-    private Address address(Type address) {
-        Address a = (Address) address;
+    private long getLong(Future<Uint256> future) throws InterruptedException, ExecutionException, TimeoutException {
+        return getResult(future).getValue().longValueExact();
+    }
+
+    private Uint256 getResult(Future<Uint256> future) throws InterruptedException, ExecutionException, TimeoutException {
+        return future.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private Address getAddress(Future<Address> address) throws InterruptedException, ExecutionException, TimeoutException {
+        Address a = address.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
         return a != null && !a.getValue().equals(BigInteger.ZERO) ? a : null;
     }
 
@@ -204,9 +203,8 @@ public class BlockchainChannel extends DataObject {
     
     public static BlockchainChannel fromExistingContract(ChannelManagerContract managerContract, ChannelContract contract) {
         try {
-            List<Type> st = contract.state().get();
-            return new BlockchainChannel(new Address(managerContract.getContractAddress()), contract, st);
-        } catch (InterruptedException | ExecutionException e) {
+            return new BlockchainChannel(new Address(managerContract.getContractAddress()), contract);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new RuntimeException(e);
         }
     }

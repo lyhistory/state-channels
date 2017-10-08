@@ -54,19 +54,23 @@ public class EthereumService {
             BigDecimal autoRefill = config.getKeyProperties(address).getAutoRefill();
 
             String nodeAddress = address.toString();
-            BigDecimal balance = getBalance(nodeAddress, Convert.Unit.ETHER);
-            
-            log.info("Balance of {} is {}", nodeAddress, balance);
+            refill(autoRefill, nodeAddress);
+        }
+    }
 
-            if (autoRefill != null && autoRefill.signum() > 0) {
-                if (balance.compareTo(autoRefill) < 0) {
-                    String coinbase = web3j.ethCoinbase().send().getAddress();
-                    
-                    log.info("Refill {} ETH from {} to {}", autoRefill, coinbase, nodeAddress);
-                    new Transfer(web3j, new ClientTransactionManager(web3j, coinbase, 100, 1000)).sendFundsAsync(nodeAddress, autoRefill, Convert.Unit.ETHER).get();
-                }
-                log.info("Balance after refill of {} is {}", nodeAddress, getBalance(nodeAddress, Convert.Unit.ETHER));
+    public void refill(BigDecimal minBalance, String address) throws IOException, InterruptedException, ExecutionException {
+        BigDecimal balance = getBalance(address, Convert.Unit.ETHER);
+
+        log.info("Balance of {} is {}", address, balance);
+
+        if (minBalance != null && minBalance.signum() > 0) {
+            if (balance.compareTo(minBalance) < 0) {
+                String coinbase = web3j.ethCoinbase().send().getAddress();
+                
+                log.info("Refill {} ETH from {} to {}", minBalance, coinbase, address);
+                new Transfer(web3j, new ClientTransactionManager(web3j, coinbase, 100, 1000)).sendFundsAsync(address, minBalance, Convert.Unit.ETHER).get();
             }
+            log.info("Balance after refill of {} is {}", address, getBalance(address, Convert.Unit.ETHER));
         }
     }
 

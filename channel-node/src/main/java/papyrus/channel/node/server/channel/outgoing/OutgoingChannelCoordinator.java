@@ -285,6 +285,7 @@ public class OutgoingChannelCoordinator {
                 receiverAddress,
                 new Uint256(channelProperties.getCloseTimeout()),
                 new Uint256(channelProperties.getSettleTimeout()),
+                new Uint256(channelProperties.getAuditTimeout()),
                 channelProperties.getAuditor().orElse(Address.DEFAULT)
             );
             //todo store transaction hash instead of future

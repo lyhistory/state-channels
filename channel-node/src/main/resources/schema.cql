@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS outgoing.channel_pool (
     deposit             decimal,
     close_timeout       bigint,
     settle_timeout      bigint,
+    audit_timeout       bigint,
     close_blocks_count  bigint,
     shutdown            boolean,
     PRIMARY KEY(sender,receiver) 
