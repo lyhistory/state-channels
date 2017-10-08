@@ -133,10 +133,16 @@ public class ContractsManager {
 
     private String checkContractExists(String name, String contractAddress) throws IOException {
         String code = CryptoUtil.getContractCode(web3j, contractAddress);
-        if (code.equals("0")) {
+        boolean exists = !code.equals("0");
+        if (!exists) {
             throw new IllegalStateException("Contract " + name + " is not deployed at address: " + contractAddress);
         }
         return code;
+    }
+
+    public boolean contractExists(String contractAddress) throws IOException {
+        String code = CryptoUtil.getContractCode(web3j, contractAddress);
+        return !code.equals("0") && !code.equals("");
     }
 
     public <C extends Contract> DeployingContract<C> startDeployment(Class<C> contractClass, Type... args) {

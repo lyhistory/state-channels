@@ -8,7 +8,6 @@ import java.util.concurrent.ExecutionException;
 
 import org.junit.Assert;
 import org.junit.Test;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.crypto.Credentials;
@@ -22,6 +21,7 @@ import papyrus.channel.node.UnlockTransferRequest;
 import papyrus.channel.node.config.EthereumConfig;
 import papyrus.channel.node.contract.ChannelApiStub;
 import papyrus.channel.node.contract.ChannelContract;
+import papyrus.channel.node.contract.ChannelManagerContract;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.channel.incoming.IncomingChannelState;
@@ -99,24 +99,14 @@ public class PaymentTest extends BaseChannelTest {
         Assert.assertEquals(5, response.fraudCount.getValue().intValueExact());
         Assert.assertEquals(10, response.impressionsCount.getValue().intValueExact());
     }
-    
-    @Test
-    public void test() throws ExecutionException, InterruptedException {
-        Address contractAddress = new Address("0x52ae1f3ae038eb82f76e974f810b26b64d0caf7a");
-        
-        ConfigurableApplicationContext sender = createContext("sender");
-        ContractsManager contractManager = sender.getBean(ContractsManagerFactory.class).getMainContractManager();
-        ChannelContract contract = contractManager.load(ChannelContract.class, contractAddress);
-        System.out.println(contract.closed().get().getValue());
-        System.out.println(contract.auditTimeout().get().getValue());
-        System.out.println(contract.audited().get().getValue());
-        System.out.println(sender.getBean(EthereumService.class).getBlockNumber());
-        
-        
-        TransactionReceipt receipt = contractManager.channelManager().auditReport(contractAddress, new Uint256(10), new Uint256(5)).get();
-        Address channelApi = contractManager.channelManager().channel_api().get();
-        ChannelApiStub channelApiStub = contractManager.load(ChannelApiStub.class, channelApi);
-        List<ChannelApiStub.ChannelAuditEventResponse> channelAuditEvents = channelApiStub.getChannelAuditEvents(receipt);
+
+    private void destroyChannel(IncomingChannelState channelState) throws ExecutionException, InterruptedException, IOException {
+        ContractsManager contractManager = sender.getBean(ContractsManagerFactory.class).getContractManager(channelState.getSenderAddress());
+        Assert.assertTrue(contractManager.contractExists(channelState.getChannelAddress().toString()));
+        TransactionReceipt receipt = contractManager.channelManager().destroyChannel(channelState.getChannelAddress()).get();
+        List<ChannelManagerContract.ChannelDeletedEventResponse> events = contractManager.channelManager().getChannelDeletedEvents(receipt);
+        Assert.assertEquals(1, events.size());
+        Assert.assertFalse(contractManager.contractExists(channelState.getChannelAddress().toString()));
     }
 
     @Test
@@ -155,5 +145,8 @@ public class PaymentTest extends BaseChannelTest {
         closeAndSettleChannel(channelState, transferSum);
         
         auditChannel(channelState, auditorCredentials);
+        
+        //now channel may be destroyed
+        destroyChannel(channelState);
     }
 }

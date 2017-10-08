@@ -17,6 +17,7 @@ contract ChannelManagerContract {
     );
 
     event ChannelDeleted(
+        address channel_address,
         address indexed sender,
         address indexed receiver
     );
@@ -24,28 +25,11 @@ contract ChannelManagerContract {
     StandardToken public token;
     ChannelApi public channel_api;
 
-    mapping(address => address[]) outgoing_channels;
-    mapping(address => address[]) incoming_channels;
-
     function ChannelManagerContract(address token_address, address channel_api_address) {
         require(token_address != 0);
         require(channel_api_address != 0);
         token = StandardToken(token_address);
         channel_api = ChannelApi(channel_api_address);
-    }
-
-    /// @notice Get all outgoing channels for participant
-    /// @param participant The address of the partner
-    /// @return The addresses of the channels
-    function getOutgoingChannels(address participant) constant returns (address[]) {
-        return outgoing_channels[participant]; 
-    }
-
-    /// @notice Get all incoming channels for participant
-    /// @param participant The address of the partner
-    /// @return The addresses of the channels
-    function getIncomingChannels(address participant) constant returns (address[]) {
-        return incoming_channels[participant]; 
     }
 
     /// @notice Create a new channel from msg.sender to receiver
@@ -73,12 +57,6 @@ contract ChannelManagerContract {
             auditor
         );
 
-        address[] storage caller_channels = outgoing_channels[msg.sender];
-        address[] storage partner_channels = incoming_channels[receiver];
-        
-        caller_channels.push(new_channel_address);
-        partner_channels.push(new_channel_address);
-
         ChannelNew(
             new_channel_address, 
             msg.sender, 
@@ -94,7 +72,7 @@ contract ChannelManagerContract {
 
     function auditReport(address contract_address, uint total, uint fraud) {
         ChannelContract ch = ChannelContract(contract_address);
-//        require(ch.manager() == address(this));
+        require(ch.manager() == address(this));
         address auditor = msg.sender;
         ch.audit(auditor);
         channel_api.applyRuntimeUpdate(ch.sender(), ch.receiver(), total, fraud);
@@ -103,6 +81,7 @@ contract ChannelManagerContract {
     function destroyChannel(address channel_address) {
         ChannelContract ch = ChannelContract(channel_address);
         require(ch.manager() == address(this));
+        ChannelDeleted(channel_address,ch.sender(),ch.receiver());
         ch.destroy();
     }
 }

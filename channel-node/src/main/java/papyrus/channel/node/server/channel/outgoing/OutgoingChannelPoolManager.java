@@ -9,15 +9,12 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
 import javax.annotation.PreDestroy;
 
-import org.apache.http.conn.HttpHostConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,15 +23,11 @@ import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.web3j.abi.datatypes.Address;
-import org.web3j.abi.datatypes.DynamicArray;
 
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
-import com.google.common.base.Throwables;
 
 import papyrus.channel.node.config.EthProperties;
 import papyrus.channel.node.config.EthereumConfig;
-import papyrus.channel.node.contract.ChannelManagerContract;
-import papyrus.channel.node.server.channel.BlockchainChannel;
 import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.channel.TransferRepository;
@@ -145,15 +138,6 @@ public class OutgoingChannelPoolManager {
         .withErrorMessage("Failed to load state from persistent store")
         .call();
 
-        if (ethProperties.isSync()) {
-            Retriable.wrapTask(this::syncBlockchainChannels)
-                .withErrorMessage("Failed to load channels from blockchain")
-                .retryOn(HttpHostConnectException.class)
-                .call();
-        }
-
-        //        executorService.scheduleWithFixedDelay(this::syncBlockchainChannels, 60, 60, TimeUnit.SECONDS);
-
         watchThread.start();
     }
 
@@ -189,34 +173,6 @@ public class OutgoingChannelPoolManager {
         }
     }
 
-    private void syncBlockchainChannels() {
-        try {
-            for (Address senderAddress : ethereumConfig.getAddresses()) {
-                ChannelManagerContract channelManager = contractsManagerFactory.getContractManager(senderAddress).channelManager();
-                DynamicArray<Address> array = channelManager.getOutgoingChannels(senderAddress).get();
-                List<Address> value = array.getValue();
-                for (Address address : value) {
-                    OutgoingChannelState state = registry.loadChannel(address);
-                    BlockchainChannel channel = state.getChannel();
-                    if (state.getStatus() == OutgoingChannelState.Status.SETTLED) continue;
-                    log.info("Loaded {} channel from blockchain. address: {}, data: {}", state.getStatus(), address, channel);
-                    Optional<OutgoingChannelState> existingState = registry.getChannel(address);
-                    if (existingState.isPresent()) {
-                        existingState.get().updateBlockchainState(state);
-                    } else {
-                        registry.register(state, getPolicy(senderAddress, state.getChannel().getReceiverAddress()));
-                    }
-                }
-            }
-        } catch (InterruptedException e) {
-            Thread.interrupted();
-            throw new RuntimeException(e);
-        } catch (ExecutionException e) {
-            throw Throwables.propagate(e.getCause());
-        }
-    }
-
-    
     public OutgoingChannelPolicy getPolicy(Address sender, Address receiver) {
         ChannelPoolProperties properties = getProperties(sender, receiver);
         return properties != null ? properties.getPolicy() : OutgoingChannelPolicy.NONE;
