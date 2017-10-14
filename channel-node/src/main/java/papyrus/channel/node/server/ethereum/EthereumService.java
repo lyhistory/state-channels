@@ -3,7 +3,11 @@ package papyrus.channel.node.server.ethereum;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
 import javax.annotation.PostConstruct;
 
@@ -11,16 +15,26 @@ import org.apache.http.conn.HttpHostConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.datatypes.Address;
+import org.web3j.abi.datatypes.Type;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameterName;
+import org.web3j.protocol.core.Ethereum;
+import org.web3j.protocol.core.methods.response.EthGetTransactionReceipt;
+import org.web3j.protocol.core.methods.response.EthSendTransaction;
+import org.web3j.protocol.core.methods.response.TransactionReceipt;
+import org.web3j.protocol.exceptions.TransactionTimeoutException;
 import org.web3j.tx.ClientTransactionManager;
+import org.web3j.tx.TransactionManager;
 import org.web3j.tx.Transfer;
 import org.web3j.utils.Convert;
 
 import com.google.common.base.Throwables;
 
+import papyrus.channel.node.config.EthRpcProperties;
 import papyrus.channel.node.config.EthereumConfig;
+import papyrus.channel.node.contract.ContractLinker;
 import papyrus.channel.node.util.Retriable;
 
 @Service
@@ -59,16 +73,26 @@ public class EthereumService {
     }
 
     public void refill(BigDecimal minBalance, String address) throws IOException, InterruptedException, ExecutionException {
+        refill(minBalance, address, () -> {
+            try {
+                String coinbase = web3j.ethCoinbase().send().getAddress();
+                return new ClientTransactionManager(web3j, coinbase, 100, 1000);
+            } catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+        });
+    }
+
+    public void refill(BigDecimal minBalance, String address, Supplier<TransactionManager> managerSupplier) throws InterruptedException, ExecutionException {
         BigDecimal balance = getBalance(address, Convert.Unit.ETHER);
 
         log.info("Balance of {} is {}", address, balance);
 
         if (minBalance != null && minBalance.signum() > 0) {
             if (balance.compareTo(minBalance) < 0) {
-                String coinbase = web3j.ethCoinbase().send().getAddress();
-                
-                log.info("Refill {} ETH from {} to {}", minBalance, coinbase, address);
-                new Transfer(web3j, new ClientTransactionManager(web3j, coinbase, 100, 1000)).sendFundsAsync(address, minBalance, Convert.Unit.ETHER).get();
+                TransactionManager manager = managerSupplier.get();
+                log.info("Refill {} ETH from {} to {}", minBalance, manager.getFromAddress(), address);
+                new Transfer(web3j, manager).sendFundsAsync(address, minBalance, Convert.Unit.ETHER).get();
             }
             log.info("Balance after refill of {} is {}", address, getBalance(address, Convert.Unit.ETHER));
         }
@@ -78,9 +102,9 @@ public class EthereumService {
         return web3j;
     }
 
-    public BigDecimal getBalance(String nodeAddress, Convert.Unit unit) {
+    public BigDecimal getBalance(String accountAddress, Convert.Unit unit) {
         try {
-            BigInteger balance = web3j.ethGetBalance(nodeAddress, DefaultBlockParameterName.LATEST).send().getBalance();
+            BigInteger balance = web3j.ethGetBalance(accountAddress, DefaultBlockParameterName.LATEST).send().getBalance();
             return Convert.fromWei(new BigDecimal(balance), unit);
         } catch (IOException e) {
             throw Throwables.propagate(e);
@@ -97,5 +121,59 @@ public class EthereumService {
         } catch (IOException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    public Address deployContract(TransactionManager transactionManager, String binary) throws InterruptedException, TransactionTimeoutException, IOException {
+        return deployContract(transactionManager, binary, null);
+    }
+
+    public Address deployContract(TransactionManager transactionManager, String binary, Map<String, Address> libraries, Type... constructorArgs) throws IOException, TransactionTimeoutException, InterruptedException {
+        ContractLinker linker = new ContractLinker(binary);
+        if (libraries != null && !libraries.isEmpty()) {
+            libraries.forEach(linker::link);
+        }
+        linker.assertLinked();
+        String encodedConstructor = FunctionEncoder.encodeConstructor(Arrays.<Type>asList(constructorArgs));
+        String data = linker.getBinary() + encodedConstructor;
+
+        EthRpcProperties rpcProperties = config.getRpcProperties();
+        EthSendTransaction transactionResponse = transactionManager.sendTransaction(
+            rpcProperties.getGasPrice(), rpcProperties.getGasLimit(), null, data, BigInteger.ZERO);
+
+        if (transactionResponse.hasError()) {
+            throw new RuntimeException("Error processing transaction request: "
+                + transactionResponse.getError().getMessage());
+        }
+
+        String transactionHash = transactionResponse.getTransactionHash();
+
+        Optional<TransactionReceipt> receiptOptional =
+            sendTransactionReceiptRequest(transactionHash, web3j);
+
+        long millis = rpcProperties.getSleep().toMillis();
+        int attempts = rpcProperties.getAttempts();
+        for (int i = 0; i < attempts; i++) {
+            if (!receiptOptional.isPresent()) {
+                Thread.sleep(millis);
+                receiptOptional = sendTransactionReceiptRequest(transactionHash, web3j);
+            } else {
+                String contractAddress = receiptOptional.get().getContractAddress();
+                return new Address(contractAddress);
+            }
+        }
+        throw new TransactionTimeoutException("Transaction receipt was not generated after " + (millis * attempts / 1000)
+            + " seconds for transaction: " + transactionHash);
+    }
+
+    private Optional<TransactionReceipt> sendTransactionReceiptRequest(
+        String transactionHash, Ethereum web3j) throws IOException {
+        EthGetTransactionReceipt transactionReceipt =
+            web3j.ethGetTransactionReceipt(transactionHash).send();
+        if (transactionReceipt.hasError()) {
+            throw new RuntimeException("Error processing request: "
+                + transactionReceipt.getError().getMessage());
+        }
+
+        return transactionReceipt.getTransactionReceipt();
     }
 }

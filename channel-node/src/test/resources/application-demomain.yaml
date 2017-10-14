@@ -1,0 +1,25 @@
+eth:
+  rpc:
+    node-url: https://mainnet.infura.io
+    gas-price: 10000000000 #Gwei
+    gas-limit: 2000000
+  accounts: 
+    dsp:
+        private-key: 26e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
+        client-address: 0x327d868ec4c7bd18b7e7d776c41e251d42d2590c
+        client-private-key: 5c714cb0bb20b7b2960e3dd99a5e11a984441aa3a9f55497dc2eb5a8fa88a25d
+    ssp:
+        private-key: 16e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
+    auditor:
+        private-key: 06e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
+contract:
+  address:
+    EndpointRegistryContract: 0x4293621b406e56144104bf92fab162c854b6ed37
+    PapyrusToken: 0xbeb4adc711aab72b12d89e2044c826bd32f9fd7c
+#    ChannelManagerContract: 0x282a1c1e3b188cef2167ef01414f605a647fa489
+    ChannelManagerContract: 0x255f917204dc99f4ccF364c4d05331282FBF7A49
+channel:
+  server:
+    port: 10080
+    health-check-port: 10090
+    endpoint-url: grpc://localhost:10080

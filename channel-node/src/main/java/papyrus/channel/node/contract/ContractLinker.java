@@ -1,21 +1,28 @@
 package papyrus.channel.node.contract;
 
+import java.lang.reflect.Field;
 import java.util.HashSet;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.crypto.Keys;
+import org.web3j.tx.Contract;
 import org.web3j.utils.Numeric;
 
-import com.google.common.base.Preconditions;
-
-class ContractLinker {
+public class ContractLinker {
     private static final int ADDRESS_CHARS = 40;
     private String binary;
 
+    public ContractLinker(Class<? extends Contract> contractClass) throws NoSuchFieldException, IllegalAccessException {
+
+        Field field = contractClass.getDeclaredField("BINARY");
+        field.setAccessible(true);
+        this.binary = (String) field.get(null);
+    }
+
     public ContractLinker(String binary) {
-        this.binary = Preconditions.checkNotNull(binary);
+        this.binary = binary;
     }
 
     public String getBinary() {
@@ -28,6 +35,7 @@ class ContractLinker {
 
     public boolean link(String library, Address address) {
         //see https://github.com/ethereum/browser-solidity/blob/ab0593386a761e9755e3c79968767ffa8ad2fd82/src/universal-dapp.js#L634
+        if (library.length() > ADDRESS_CHARS - 4) library = library.substring(0, ADDRESS_CHARS - 4);
         String libLabel = "__" + library + StringUtils.repeat('_', ADDRESS_CHARS - 2 - library.length());
         assert libLabel.length() == ADDRESS_CHARS;
         if (!binary.contains(libLabel)) return false;

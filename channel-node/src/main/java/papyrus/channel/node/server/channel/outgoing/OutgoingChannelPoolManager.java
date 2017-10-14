@@ -166,7 +166,11 @@ public class OutgoingChannelPoolManager {
         for (OutgoingChannelBean bean : channelRepository.all()) {
             if (bean.getStatus() == OutgoingChannelState.Status.SETTLED) continue;
             OutgoingChannelState state = registry.getChannel(bean.getAddress())
-                .orElse(registry.loadChannel(bean.getAddress()));
+                .orElseGet(() -> {
+                    OutgoingChannelState channel = registry.loadChannel(bean.getAddress());
+                    registry.register(channel, getPolicy(channel.getChannel().getSenderAddress(), channel.getChannel().getReceiverAddress()));
+                    return channel;
+                });
             Iterable<SignedTransfer> transfers = transferRepository.getAllById(bean.getAddress());
             Iterable<SignedTransferUnlock> unlocks = unlockRepository.getAllById(bean.getAddress());
             state.updatePersistentState(bean, transfers, unlocks);

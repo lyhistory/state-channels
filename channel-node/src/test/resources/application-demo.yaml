@@ -1,0 +1,24 @@
+eth:
+  rpc:
+    node-url: https://ropsten.infura.io
+    gas-price: 21000000000
+    gas-limit: 2000000
+  accounts: 
+    dsp:
+        private-key: 26e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
+        client-address: 0x327d868ec4c7bd18b7e7d776c41e251d42d2590c
+        client-private-key: 5c714cb0bb20b7b2960e3dd99a5e11a984441aa3a9f55497dc2eb5a8fa88a25d
+    ssp:
+        private-key: 16e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
+    auditor:
+        private-key: 06e0f2a897cbbe5b5009c3d9cc1ee0b3d29e0d47b1d43125cf71918f24c4cb01
+contract:
+  address:
+    EndpointRegistryContract: 0xc1d9b39c44da943f9e96229937622a417bae14c6
+    PapyrusToken: 0x99aa6bb60d24720cd9982b8dce2039800fc339ff
+    ChannelManagerContract: 0x5bf124b29cd0ea201bd3b22b3645a8e1cf192277
+channel:
+  server:
+    port: 10080
+    health-check-port: 10090
+    endpoint-url: grpc://localhost:10080

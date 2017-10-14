@@ -15,7 +15,6 @@ import org.web3j.crypto.CipherException;
 import org.web3j.crypto.Credentials;
 import org.web3j.crypto.WalletUtils;
 import org.web3j.protocol.Web3j;
-import org.web3j.utils.Numeric;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -42,15 +41,10 @@ public class EthereumConfig {
         credentialsMap = new HashMap<>();
         transactionManagerMap = new HashMap<>();
 
-        EthRpcProperties rpc = properties.getRpc();
         Credentials mainCred = null;
         for (Map.Entry<String, EthKeyProperties> e : properties.getAccounts().entrySet()) {
-            String account = e.getKey();
             EthKeyProperties key = e.getValue();
             Credentials credentials = loadCredentials(key);
-            if (!account.equals(Numeric.cleanHexPrefix(credentials.getAddress()))) {
-                throw new IllegalStateException("Invalid account address: " + credentials.getAddress() + ", expected: 0x" + account);
-            }
             if (mainCred == null) mainCred = credentials;
             Address address = new Address(credentials.getAddress());
             keyProperties.put(address, key);

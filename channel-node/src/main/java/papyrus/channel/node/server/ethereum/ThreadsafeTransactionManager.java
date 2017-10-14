@@ -7,6 +7,7 @@ import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.protocol.core.methods.request.RawTransaction;
+import org.web3j.protocol.core.methods.request.Transaction;
 import org.web3j.protocol.core.methods.response.EthGetTransactionCount;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
 import org.web3j.tx.RawTransactionManager;
@@ -37,6 +38,11 @@ public class ThreadsafeTransactionManager extends RawTransactionManager {
     }
 
     @Override
+    public EthSendTransaction signAndSend(RawTransaction rawTransaction) throws IOException {
+        return super.signAndSend(rawTransaction);
+    }
+
+    @Override
     public synchronized EthSendTransaction sendTransaction(
         BigInteger gasPrice, BigInteger gasLimit, String to,
         String data, BigInteger value) throws IOException {
@@ -44,10 +50,14 @@ public class ThreadsafeTransactionManager extends RawTransactionManager {
         BigInteger nonce = getNonce();
         boolean success = false;
         try {
+            BigInteger amountUsed = web3j.ethEstimateGas(new Transaction(getFromAddress(), nonce, gasPrice, gasLimit, to, value, data)).send().getAmountUsed();
+            if (amountUsed.compareTo(gasLimit) >= 0) {
+                throw new IllegalStateException("Estimate out of gas");
+            }
             RawTransaction rawTransaction = RawTransaction.createTransaction(
                 nonce,
                 gasPrice,
-                gasLimit,
+                amountUsed.shiftLeft(1),
                 to,
                 value,
                 data);
