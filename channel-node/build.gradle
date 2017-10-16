@@ -168,7 +168,7 @@ task dockerfile {
     }
 }
 
-def dockerTag = "eu.gcr.io/papyrus-global/channel-node:0.1"
+def dockerTag = "eu.gcr.io/papyrus-global/channel-node"
 
 task dockerImage(type: DockerBuildImage, dependsOn: dockerfile) {
     doFirst {

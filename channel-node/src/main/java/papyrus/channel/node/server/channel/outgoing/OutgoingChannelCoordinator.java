@@ -186,7 +186,7 @@ public class OutgoingChannelCoordinator {
                             log.info("Outgoing channel:{} to receiver:{} updated from:{} to:{}", channel.getAddressSafe(), channel.getChannel().getReceiverAddress(), status, channel.getStatus());
                         }
                     } catch (Exception e) {
-                        log.info("Channel update completed exceptionally", e);
+                        log.info("Channel {} update completed exceptionally", channel.getAddressSafe(), e);
                     }
                     if (!updated) {
                         Thread.sleep(1000L);
