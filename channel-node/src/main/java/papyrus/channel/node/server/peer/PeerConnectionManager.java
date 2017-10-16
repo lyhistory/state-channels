@@ -24,10 +24,7 @@ public class PeerConnectionManager {
     }
 
     private PeerConnection open(Address address) {
-        String endpoint = endpointRegistry.lookupEndpoint(address);
-        if (endpoint == null) {
-            throw new IllegalStateException("Endpoint not registered for " + address);
-        }
+        String endpoint = endpointRegistry.lookupEndpoint(address).orElseThrow(() -> new IllegalStateException("Endpoint not registered for " + address));
         try {
             URI uri = new URI(endpoint);
             Preconditions.checkState("grpc".equals(uri.getScheme()), "Scheme not supported: %s", uri);

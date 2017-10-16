@@ -38,11 +38,6 @@ public class ThreadsafeTransactionManager extends RawTransactionManager {
     }
 
     @Override
-    public EthSendTransaction signAndSend(RawTransaction rawTransaction) throws IOException {
-        return super.signAndSend(rawTransaction);
-    }
-
-    @Override
     public synchronized EthSendTransaction sendTransaction(
         BigInteger gasPrice, BigInteger gasLimit, String to,
         String data, BigInteger value) throws IOException {
@@ -52,7 +47,7 @@ public class ThreadsafeTransactionManager extends RawTransactionManager {
         try {
             BigInteger amountUsed = web3j.ethEstimateGas(new Transaction(getFromAddress(), nonce, gasPrice, gasLimit, to, value, data)).send().getAmountUsed();
             if (amountUsed.compareTo(gasLimit) >= 0) {
-                throw new IllegalStateException("Estimate out of gas");
+                throw new IllegalStateException(String.format("Estimate out of gas, from: %s, to : %s, gas limit: %s", getFromAddress(), to, gasLimit));
             }
             RawTransaction rawTransaction = RawTransaction.createTransaction(
                 nonce,

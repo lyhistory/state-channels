@@ -1,5 +1,6 @@
 package papyrus.channel.node.server.peer;
 
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import org.slf4j.Logger;
@@ -44,9 +45,10 @@ public class EndpointRegistry {
         }
     }
     
-    public String lookupEndpoint(Address address) {
+    public Optional<String> lookupEndpoint(Address address) {
         try {
-            return registry.findEndpointByAddress(address).get().getValue();
+            String value = registry.findEndpointByAddress(address).get().getValue();
+            return value != null && !value.isEmpty() ? Optional.of(value) : Optional.empty();
         } catch (Exception e) {
             throw Throwables.propagate(e);
         }
