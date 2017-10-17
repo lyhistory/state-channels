@@ -204,7 +204,7 @@ public class OutgoingChannelCoordinator {
             }
         }
 
-        private void makeTransitions() {
+        private void makeTransitions() throws Exception {
             boolean needClose = channel.isNeedClose();
             switch (channel.getStatus()) {
                 case NEW:
@@ -223,6 +223,14 @@ public class OutgoingChannelCoordinator {
                     }
                     break;
                 case DEPOSIT_APPROVED:
+                    if (approvedDeposit == null) {
+                        approvedDeposit = tokenService.allowance(channel.getChannelAddress());
+                        if (approvedDeposit.compareTo(policy.getDeposit()) < 0) {
+                            log.info("Contract {} approved deposit is less that needed. Approved: %s, needed: %s", channel.getAddressSafe(), approvedDeposit, policy.getDeposit());
+                            channel.resetDepositApproval();
+                            break;
+                        }
+                    }
                     channel.deposit(approvedDeposit);
                     break;
                 case OPENED:

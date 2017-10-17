@@ -9,8 +9,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
 import javax.annotation.PreDestroy;
@@ -32,9 +32,6 @@ import papyrus.channel.node.server.channel.SignedTransfer;
 import papyrus.channel.node.server.channel.SignedTransferUnlock;
 import papyrus.channel.node.server.channel.TransferRepository;
 import papyrus.channel.node.server.channel.TransferUnlockRepository;
-import papyrus.channel.node.server.ethereum.ContractsManagerFactory;
-import papyrus.channel.node.server.ethereum.EthereumService;
-import papyrus.channel.node.server.peer.PeerConnectionManager;
 import papyrus.channel.node.util.Retriable;
 
 @EnableConfigurationProperties(EthProperties.class)
@@ -45,12 +42,6 @@ public class OutgoingChannelPoolManager {
     private final Map<Address, Map<Address, ChannelPoolProperties>> channelPools = new ConcurrentHashMap<>();
     private final Thread watchThread;
 
-    @Autowired
-    private EthereumService ethereumService;
-    @Autowired
-    private ContractsManagerFactory contractsManagerFactory;
-    @Autowired
-    private PeerConnectionManager peerConnectionManager;
     @Autowired
     private EthereumConfig ethereumConfig;
     @Autowired
@@ -63,10 +54,6 @@ public class OutgoingChannelPoolManager {
     private TransferRepository transferRepository;
     @Autowired
     private TransferUnlockRepository unlockRepository;
-    @Autowired
-    private ScheduledExecutorService executorService;
-    @Autowired
-    private EthProperties ethProperties;
 
     public OutgoingChannelPoolManager() {
         this.watchThread = new Thread(this::cycle,"Channel pool watcher");
@@ -165,19 +152,26 @@ public class OutgoingChannelPoolManager {
     private void loadChannels() {
         for (OutgoingChannelBean bean : channelRepository.all()) {
             if (bean.getStatus() == OutgoingChannelState.Status.SETTLED) continue;
-            OutgoingChannelState state = registry.getChannel(bean.getAddress())
-                .orElseGet(() -> {
-                    OutgoingChannelState channel = registry.loadChannel(bean.getAddress());
-                    registry.register(channel, getPolicy(channel.getChannel().getSenderAddress(), channel.getChannel().getReceiverAddress()));
-                    return channel;
-                });
+            Optional<OutgoingChannelState> state = registry.getChannel(bean.getAddress());
+            OutgoingChannelState channel;
+            if (!state.isPresent()) {
+                channel = registry.loadChannel(bean.getAddress());
+                if (!ethereumConfig.hasAddress(channel.getChannel().getSenderAddress())) {
+                    log.warn("Address is not managed, skipping channel: " + channel.getChannelAddress());
+                    continue;
+                }
+                registry.register(channel, getPolicy(channel.getChannel().getSenderAddress(), channel.getChannel().getReceiverAddress()));
+            } else {
+                channel = state.get();
+            }
+                
             Iterable<SignedTransfer> transfers = transferRepository.getAllById(bean.getAddress());
             Iterable<SignedTransferUnlock> unlocks = unlockRepository.getAllById(bean.getAddress());
-            state.updatePersistentState(bean, transfers, unlocks);
+            channel.updatePersistentState(bean, transfers, unlocks);
         }
     }
 
-    public OutgoingChannelPolicy getPolicy(Address sender, Address receiver) {
+    private OutgoingChannelPolicy getPolicy(Address sender, Address receiver) {
         ChannelPoolProperties properties = getProperties(sender, receiver);
         return properties != null ? properties.getPolicy() : OutgoingChannelPolicy.NONE;
     }
@@ -187,7 +181,7 @@ public class OutgoingChannelPoolManager {
         return map != null ? map.get(receiver) : null;
     }
     
-    public List<OutgoingChannelState> getChannels(Address sender, Address receiver) {
+    List<OutgoingChannelState> getChannels(Address sender, Address receiver) {
         return registry.getByParticipants(sender, receiver).collect(Collectors.toList());
     }
 
@@ -208,7 +202,7 @@ public class OutgoingChannelPoolManager {
         poolMap.remove(receiver);
     }
     
-    public void registerTransfer(SignedTransfer signedTransfer) throws SignatureException {
+    void registerTransfer(SignedTransfer signedTransfer) throws SignatureException {
         OutgoingChannelState channelState = registry.getChannel(signedTransfer.getChannelAddress()).orElseThrow(
             () -> new IllegalStateException("Unknown channel address: " + signedTransfer.getChannelAddress())
         );
@@ -217,7 +211,7 @@ public class OutgoingChannelPoolManager {
         channelRepository.save(channelState.getPersistentState());
     }
 
-    public void registerTransferUnlock(SignedTransferUnlock transferUnlock) {
+    void registerTransferUnlock(SignedTransferUnlock transferUnlock) {
         OutgoingChannelState channelState = registry.getChannel(transferUnlock.getChannelAddress()).orElseThrow(
             () -> new IllegalStateException("Unknown channel address: " + transferUnlock.getChannelAddress())
         );

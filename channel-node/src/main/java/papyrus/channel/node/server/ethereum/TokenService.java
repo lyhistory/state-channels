@@ -2,6 +2,7 @@ package papyrus.channel.node.server.ethereum;
 
 import java.math.BigInteger;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.generated.Uint256;
@@ -54,6 +55,10 @@ public class TokenService {
         }
         balance = balance.subtract(value);
         return (CompletableFuture<TransactionReceipt>) papyrusToken.approve(spender, new Uint256(value));
+    }
+    
+    public BigInteger allowance(Address spender) throws ExecutionException, InterruptedException {
+        return papyrusToken.allowance(address, spender).get().getValue();
     }
 
     private BigInteger loadBalance() {

@@ -262,6 +262,11 @@ public class OutgoingChannelState {
         );
     }
 
+    public void resetDepositApproval() {
+        checkStatus(Status.DEPOSIT_APPROVED);
+        status = Status.CREATED;
+    }
+
     public void deposit(BigInteger value) {
         checkStatus(Status.DEPOSIT_APPROVED);
         startTransition(
